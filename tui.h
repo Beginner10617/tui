@@ -106,7 +106,7 @@ void write_str(const char *str, TerminalWindow *term){
 }
 
 void fill_clr(uint8_t clr, TerminalWindow *term){
-  for(size_t i = 0; i <= term->num_of_cols * term->num_of_rows; i++){
+  for(size_t i = 0; i < term->num_of_cols * term->num_of_rows; i++){
     term->back_buf[i].codepoint = ' ';
     term->back_buf[i].bg = clr;
   }
@@ -126,11 +126,14 @@ void display(TerminalWindow *term){
     if (ioctl(STDOUT_FILENO, TIOCSWINSZ, &ws) == -1) {
       perror("ioctl");
     }
+    printf("\x1b[?25l");   // Hide cursor
   }
   printf("\x1b[H");      // Move cursor to (0,0)
   for(size_t i = 0; i < term->num_of_cols * term->num_of_rows; i++){
-    if (i != 0 && i % term->num_of_cols == 0) printf("\n");
-    printf(".");
+    if (i != 0 && i % term->num_of_cols == 0) putchar('\n');
+    Cell cell = term->back_buf[i];
+    printf("\x1b[38;5;%um\x1b[48;5;%um%c\x1b[0m", 
+	cell.fg, cell.bg, cell.codepoint);
   }
   fflush(stdout);
 
