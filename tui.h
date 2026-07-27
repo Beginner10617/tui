@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
+#include <time.h>
 
 typedef struct {
   uint32_t codepoint;
@@ -30,6 +31,11 @@ enum {
   CELL_DIM = 1 << 5,
 };
 
+typedef struct{
+  struct timespec last_frame_time;
+  double frame_duration_ms; // in m-sec
+} FrameLimiter;
+
 TerminalWindow createTermWindow(size_t width, size_t height);
 void move_cursor(size_t row, size_t col, TerminalWindow *term);
 void set_fg_color(uint8_t clr, TerminalWindow *term);
@@ -38,6 +44,9 @@ void write_char(uint8_t c, TerminalWindow *term);
 void write_str(const char *str, TerminalWindow *term);
 void fill_clr(uint8_t clr, TerminalWindow *term);
 void display(TerminalWindow *term);
+void sleep_ms(long ms);
+void frame_limiter_init(unsigned int frame_rate, FrameLimiter *frame_limiter);
+void frame_limiter_wait(const FrameLimiter *frame_limiter);
 
 #ifdef TUI_IMPLEMENTATION
 TerminalWindow createTermWindow(size_t width, size_t height){
@@ -140,6 +149,14 @@ void display(TerminalWindow *term){
   Cell *tmp = term->front_buf;
   term->front_buf = term->back_buf;
   term->back_buf = tmp;
+}
+
+void sleep_ms(long ms) {
+    struct timespec ts;
+    ts.tv_sec = ms / 1000;
+    ts.tv_nsec = (ms % 1000) * 1000000L;
+
+    nanosleep(&ts, NULL);
 }
 #endif
 #endif
