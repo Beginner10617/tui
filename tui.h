@@ -121,6 +121,11 @@ void write_str(const char *str, TerminalWindow *term){
       return;
     }
     term->back_buf[index].codepoint = *c;
+    term->cursor_col++;
+    if(term->cursor_col == term->num_of_cols){
+      term->cursor_col = 0;
+      term->cursor_row++;
+    }
     index++; c++;
   }
 }
@@ -189,6 +194,7 @@ void display(TerminalWindow *term){
   Cell *tmp = term->front_buf;
   term->front_buf = term->back_buf;
   term->back_buf = tmp;
+  printf("\x1b[H");      // Move cursor to (0,0)
 }
 
 void sleep_ms(long ms) {
