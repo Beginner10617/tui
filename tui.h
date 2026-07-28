@@ -31,11 +31,6 @@ enum {
   CELL_DIM = 1 << 5,
 };
 
-typedef struct{
-  struct timespec last_frame_time;
-  double frame_duration_ms; // in m-sec
-} FrameLimiter;
-
 TerminalWindow createTermWindow(size_t width, size_t height);
 void move_cursor(size_t row, size_t col, TerminalWindow *term);
 void set_fg_color(uint8_t clr, TerminalWindow *term);
@@ -45,8 +40,14 @@ void write_str(const char *str, TerminalWindow *term);
 void fill_clr(uint8_t clr, TerminalWindow *term);
 void display(TerminalWindow *term);
 void sleep_ms(long ms);
+
+typedef struct{
+  struct timespec last_frame_time;
+  long frame_duration_ns; // in n-sec
+} FrameLimiter;
+
 void frame_limiter_init(unsigned int frame_rate, FrameLimiter *frame_limiter);
-void frame_limiter_wait(const FrameLimiter *frame_limiter);
+void frame_limiter_wait(FrameLimiter *frame_limiter);
 
 #ifdef TUI_IMPLEMENTATION
 TerminalWindow createTermWindow(size_t width, size_t height){
@@ -152,11 +153,52 @@ void display(TerminalWindow *term){
 }
 
 void sleep_ms(long ms) {
-    struct timespec ts;
-    ts.tv_sec = ms / 1000;
-    ts.tv_nsec = (ms % 1000) * 1000000L;
+  struct timespec ts;
+  ts.tv_sec = ms / 1000;
+  ts.tv_nsec = (ms % 1000) * 1000000L;
 
-    nanosleep(&ts, NULL);
+  nanosleep(&ts, NULL);
+}
+
+void frame_limiter_init(unsigned int frame_rate, FrameLimiter *frame_limiter){
+  frame_limiter->frame_duration_ns = 1000000000L / frame_rate;
+  clock_gettime(CLOCK_MONOTONIC, &frame_limiter->last_frame_time);
+}
+
+static struct timespec timespec_add_ns(struct timespec t, long ns){
+  // helper function
+  t.tv_sec += ns / 1000000000L;
+  t.tv_nsec += ns % 1000000000L;
+  if (t.tv_nsec >= 1000000000L) {
+    t.tv_sec++;
+    t.tv_nsec -= 1000000000L;
+  }
+  return t;
+}
+
+void frame_limiter_wait(FrameLimiter *frame_limiter){
+  struct timespec now;
+  clock_gettime(CLOCK_MONOTONIC, &now);
+
+  struct timespec target =
+    timespec_add_ns(frame_limiter->last_frame_time,
+                    frame_limiter->frame_duration_ns);
+
+  if (now.tv_sec > target.tv_sec ||
+  (now.tv_sec == target.tv_sec && now.tv_nsec >= target.tv_nsec))
+  {
+    frame_limiter->last_frame_time = now;
+  }
+  else
+  {
+    while (clock_nanosleep(CLOCK_MONOTONIC,
+                           TIMER_ABSTIME,
+                           &target,
+                           NULL) == EINTR)
+     ;
+
+    frame_limiter->last_frame_time = target;
+  }
 }
 #endif
 #endif

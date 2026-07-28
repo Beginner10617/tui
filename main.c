@@ -4,10 +4,12 @@
 int main(){
 	TerminalWindow term = createTermWindow(40, 10);
 	unsigned int FPS = 60;
-	double frame_duration = 1 / FPS;
+	FrameLimiter limiter;
+	frame_limiter_init(FPS, &limiter);
 	while(1){
 	  fill_clr(8, &term);
 	  display(&term);
+	  frame_limiter_wait(&limiter);
 	}
 	return 0;
 }
