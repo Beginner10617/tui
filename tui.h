@@ -8,6 +8,7 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 #include <time.h>
+#include <errno.h>
 
 typedef struct {
   uint32_t codepoint;
@@ -165,7 +166,7 @@ void frame_limiter_init(unsigned int frame_rate, FrameLimiter *frame_limiter){
   clock_gettime(CLOCK_MONOTONIC, &frame_limiter->last_frame_time);
 }
 
-static struct timespec timespec_add_ns(struct timespec t, long ns){
+struct timespec timespec_add_ns(struct timespec t, long ns){
   // helper function
   t.tv_sec += ns / 1000000000L;
   t.tv_nsec += ns % 1000000000L;
@@ -175,30 +176,52 @@ static struct timespec timespec_add_ns(struct timespec t, long ns){
   }
   return t;
 }
-
+struct timespec timespec_sub(struct timespec a, struct timespec b){
+  struct timespec r;
+  r.tv_sec  = a.tv_sec  - b.tv_sec;
+  r.tv_nsec = a.tv_nsec - b.tv_nsec;
+  if (r.tv_nsec < 0) {
+      r.tv_nsec += 1000000000L;
+      r.tv_sec--;
+  }
+  return r;
+}
+int timespec_cmp(struct timespec a, struct timespec b){
+  if (a.tv_sec < b.tv_sec)
+      return -1;
+  if (a.tv_sec > b.tv_sec)
+      return 1;
+  if (a.tv_nsec < b.tv_nsec)
+      return -1;
+  if (a.tv_nsec > b.tv_nsec)
+      return 1;
+  return 0;
+}
 void frame_limiter_wait(FrameLimiter *frame_limiter){
   struct timespec now;
   clock_gettime(CLOCK_MONOTONIC, &now);
 
-  struct timespec target =
-    timespec_add_ns(frame_limiter->last_frame_time,
-                    frame_limiter->frame_duration_ns);
+  struct timespec target = timespec_add_ns(frame_limiter->last_frame_time,
+                           frame_limiter->frame_duration_ns);
 
-  if (now.tv_sec > target.tv_sec ||
-  (now.tv_sec == target.tv_sec && now.tv_nsec >= target.tv_nsec))
-  {
-    frame_limiter->last_frame_time = now;
+  if (timespec_cmp(now, target) >= 0) {
+      frame_limiter->last_frame_time = now;
+      return;
   }
-  else
-  {
-    while (clock_nanosleep(CLOCK_MONOTONIC,
-                           TIMER_ABSTIME,
-                           &target,
-                           NULL) == EINTR)
-     ;
 
-    frame_limiter->last_frame_time = target;
+  for (;;) {
+      clock_gettime(CLOCK_MONOTONIC, &now);
+
+      if (timespec_cmp(now, target) >= 0)
+          break;
+
+      struct timespec remaining =
+          timespec_sub(target, now);
+      // To handle interrupts if any
+      while (nanosleep(&remaining, &remaining) == -1 &&
+             errno == EINTR);
   }
+  frame_limiter->last_frame_time = target;
 }
 #endif
 #endif
