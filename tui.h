@@ -105,14 +105,16 @@ void write_char(uint32_t c, TerminalWindow *term){
 void write_str(const char *str, TerminalWindow *term){
   size_t index = term->num_of_cols * term->cursor_row + term->cursor_col;
   // assuimng null terminated
-  char c = *str;
-  while(c){
+  const char *c = str;
+  while(*c){
     if(index >= term->num_of_cols * term->num_of_rows){
     #ifdef DEBUG
       printf("warning[write_str]: string length exceeded buffer size\n");
     #endif
       return;
     }
+    term->back_buf[index].codepoint = *c;
+    index++; c++;
   }
 }
 
