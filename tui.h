@@ -36,7 +36,7 @@ TerminalWindow createTermWindow(size_t width, size_t height);
 void move_cursor(size_t row, size_t col, TerminalWindow *term);
 void set_fg_color(uint8_t clr, TerminalWindow *term);
 void set_bg_color(uint8_t clr, TerminalWindow *term);
-void write_char(uint8_t c, TerminalWindow *term);
+void write_char(uint32_t c, TerminalWindow *term);
 void write_str(const char *str, TerminalWindow *term);
 void fill_clr(uint8_t clr, TerminalWindow *term);
 void display(TerminalWindow *term);
@@ -97,7 +97,7 @@ void set_bg_color(uint8_t clr, TerminalWindow *term){
   term->back_buf[index].bg = clr;
 }
 
-void write_char(uint8_t c, TerminalWindow *term){
+void write_char(uint32_t c, TerminalWindow *term){
   size_t index = term->num_of_cols * term->cursor_row + term->cursor_col;
   term->back_buf[index].codepoint = c;
 }
@@ -123,6 +123,33 @@ void fill_clr(uint8_t clr, TerminalWindow *term){
   }
 }
 
+// for utf-8 charset, translates it into null terminated, and returns length
+static int utf8_encode(uint32_t cp, char out[5]) {
+  if (cp <= 0x7F) {
+      out[0] = cp;
+      out[1] = 0;
+      return 1;
+  } else if (cp <= 0x7FF) {
+      out[0] = 0xC0 | (cp >> 6);
+      out[1] = 0x80 | (cp & 0x3F);
+      out[2] = 0;
+      return 2;
+  } else if (cp <= 0xFFFF) {
+      out[0] = 0xE0 | (cp >> 12);
+      out[1] = 0x80 | ((cp >> 6) & 0x3F);
+      out[2] = 0x80 | (cp & 0x3F);
+      out[3] = 0;
+      return 3;
+  } else {
+      out[0] = 0xF0 | (cp >> 18);
+      out[1] = 0x80 | ((cp >> 12) & 0x3F);
+      out[2] = 0x80 | ((cp >> 6) & 0x3F);
+      out[3] = 0x80 | (cp & 0x3F);
+      out[4] = 0;
+      return 4;
+  }
+}
+
 void display(TerminalWindow *term){
   if(term->first_render){
     term->first_render = false;
@@ -140,11 +167,13 @@ void display(TerminalWindow *term){
     printf("\x1b[?25l");   // Hide cursor
   }
   printf("\x1b[H");      // Move cursor to (0,0)
+  char tmp_c[5];
   for(size_t i = 0; i < term->num_of_cols * term->num_of_rows; i++){
     if (i != 0 && i % term->num_of_cols == 0) putchar('\n');
     Cell cell = term->back_buf[i];
-    printf("\x1b[38;5;%um\x1b[48;5;%um%c\x1b[0m", 
-	cell.fg, cell.bg, cell.codepoint);
+    utf8_encode(cell.codepoint, tmp_c);
+    printf("\x1b[38;5;%um\x1b[48;5;%um%s\x1b[0m", 
+	cell.fg, cell.bg, tmp_c);
   }
   fflush(stdout);
 
@@ -166,7 +195,7 @@ void frame_limiter_init(unsigned int frame_rate, FrameLimiter *frame_limiter){
   clock_gettime(CLOCK_MONOTONIC, &frame_limiter->last_frame_time);
 }
 
-struct timespec timespec_add_ns(struct timespec t, long ns){
+static struct timespec timespec_add_ns(struct timespec t, long ns){
   // helper function
   t.tv_sec += ns / 1000000000L;
   t.tv_nsec += ns % 1000000000L;
@@ -176,7 +205,7 @@ struct timespec timespec_add_ns(struct timespec t, long ns){
   }
   return t;
 }
-struct timespec timespec_sub(struct timespec a, struct timespec b){
+static struct timespec timespec_sub(struct timespec a, struct timespec b){
   struct timespec r;
   r.tv_sec  = a.tv_sec  - b.tv_sec;
   r.tv_nsec = a.tv_nsec - b.tv_nsec;
@@ -186,7 +215,7 @@ struct timespec timespec_sub(struct timespec a, struct timespec b){
   }
   return r;
 }
-int timespec_cmp(struct timespec a, struct timespec b){
+static int timespec_cmp(struct timespec a, struct timespec b){
   if (a.tv_sec < b.tv_sec)
       return -1;
   if (a.tv_sec > b.tv_sec)
