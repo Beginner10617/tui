@@ -10,8 +10,7 @@ int main(){
 	  fill_clr(4, &term);
     move_cursor(0, 0, &term);
     write_str("Hello World!", &term);
-    move_cursor(1,0, &term);
-    write_str("This is custom tui api",  &term);
+    move_cursor(50,0, &term);
 	  display(&term);
 	  frame_limiter_wait(&limiter);
 	}

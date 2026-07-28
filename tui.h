@@ -83,8 +83,15 @@ TerminalWindow createTermWindow(size_t width, size_t height){
 }
 
 void move_cursor(size_t row, size_t col, TerminalWindow *term){
-  term->cursor_row = row;
-  term->cursor_col = col;
+  if (row < term->num_of_rows && col < term->num_of_cols){
+    term->cursor_row = row;
+    term->cursor_col = col;
+  }
+  else {
+    #ifdef DEBUG
+      printf("warning[move_cursor]: position specified is out of the window\n");
+    #endif
+  }
 }
 
 void set_fg_color(uint8_t clr, TerminalWindow *term){
