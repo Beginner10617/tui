@@ -10,9 +10,9 @@ int main(){
 	bool x_inc = true, y_inc = true;
 	double dt = 0;
 	while(1){
-		fill_clr(4, &term);
+		fill_clr(BLUE, &term);
 		move_cursor(y_pos, x_pos, &term);
-		set_bg_color(3, &term);
+		set_color_bg(RED, &term);
 		write_char(' ',&term);
 		display(&term);
 		dt += 1.0 / FPS;

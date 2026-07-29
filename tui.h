@@ -56,12 +56,14 @@ enum {
 };
 
 TerminalWindow createTermWindow(size_t width, size_t height);
+
 void move_cursor(size_t row, size_t col, TerminalWindow *term);
 void set_color_fg(uint8_t clr, TerminalWindow *term);
 void set_color_bg(uint8_t clr, TerminalWindow *term);
 void write_char(uint32_t c, TerminalWindow *term);
 void write_str(const char *str, TerminalWindow *term);
 void fill_clr(uint8_t clr, TerminalWindow *term);
+
 void display(TerminalWindow *term);
 void sleep_ms(long ms);
 
@@ -118,6 +120,9 @@ TerminalWindow createTermWindow(size_t width, size_t height){
   output.num_of_cols = width;
   output.cursor_row = 0;
   output.cursor_col = 0;
+  output.cursor_color_fg = WHITE;
+  output.cursor_color_bg = BLACK;
+  output.cursor_style_flags = 0;
   output.first_render = true;
   output.front_buf = malloc( sizeof(Cell) * width * height );
   output.back_buf = malloc( sizeof(Cell) * width * height );
@@ -130,19 +135,19 @@ TerminalWindow createTermWindow(size_t width, size_t height){
   for(size_t i = 0; i < height * width; i++){
     // front
     output.front_buf[i].codepoint = ' ';
-    output.front_buf[i].fg = 7; // white
-    output.front_buf[i].bg = 0; // black
+    output.front_buf[i].fg = WHITE; // white
+    output.front_buf[i].bg = BLACK; // black
     output.front_buf[i].style_flags = 0; // no flags
 			    
     // back			    
     output.back_buf[i].codepoint = ' ';
-    output.back_buf[i].fg = 7; // white
-    output.back_buf[i].bg = 0; // black
+    output.back_buf[i].fg = WHITE; // white
+    output.back_buf[i].bg = BLACK; // black
     output.back_buf[i].style_flags = 0; // no flags
   }
   return output;
 }
-
+					 
 void move_cursor(size_t row, size_t col, TerminalWindow *term){
   if (row < term->num_of_rows && col < term->num_of_cols){
     term->cursor_row = row;
@@ -254,7 +259,8 @@ void display(TerminalWindow *term){
     utf8_encode(cell.codepoint, tmp_c);
     // styling
     for (size_t i=0; i < 8; i++){
-      if (cell.style_flags & (1 << i)) printf("\x1b[%zum", i+1);
+      if (cell.style_flags & (1 << i)) printf("\x1b[%zum", i+
+          (i<5 ? 1 : 2 ));
     }
     printf("\x1b[38;5;%um\x1b[48;5;%um%s\x1b[0m", cell.fg, cell.bg, tmp_c);
   }
