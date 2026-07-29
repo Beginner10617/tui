@@ -14,23 +14,26 @@ typedef struct {
   uint32_t codepoint;
   uint8_t fg;
   uint8_t bg;
-  uint8_t flags;
+  uint8_t style_flags;
 } Cell;
 
 typedef struct {
   Cell *front_buf, *back_buf;
   size_t num_of_rows, num_of_cols, cursor_row, cursor_col;
   uint8_t cursor_color_fg, cursor_color_bg;
+  uint8_t cursor_style_flags;
   bool first_render;
 } TerminalWindow;
 
 enum {
-  CELL_BOLD = 1 << 0,
-  CELL_UNDERLINE = 1 << 1,
-  CELL_ITALIC = 1 << 2,
-  CELL_STRIKE = 1 << 3,
-  CELL_BLINK = 1 << 4,
-  CELL_DIM = 1 << 5,
+  BOLD      = 1 << 0,
+  DIM       = 1 << 1,
+  ITALIC    = 1 << 2,
+  UNDERLINE = 1 << 3,
+  BLINK     = 1 << 4,
+  INVERSE   = 1 << 5,
+  HIDDEN    = 1 << 6,
+  STRIKE    = 1 << 7,
 };
 
 enum {
@@ -129,13 +132,13 @@ TerminalWindow createTermWindow(size_t width, size_t height){
     output.front_buf[i].codepoint = ' ';
     output.front_buf[i].fg = 7; // white
     output.front_buf[i].bg = 0; // black
-    output.front_buf[i].flags = 0; // no flags
+    output.front_buf[i].style_flags = 0; // no flags
 			    
     // back			    
     output.back_buf[i].codepoint = ' ';
     output.back_buf[i].fg = 7; // white
     output.back_buf[i].bg = 0; // black
-    output.back_buf[i].flags = 0; // no flags
+    output.back_buf[i].style_flags = 0; // no flags
   }
   return output;
 }
@@ -157,7 +160,7 @@ void set_color_fg(uint8_t clr, TerminalWindow *term){
 }
 
 void set_color_bg(uint8_t clr, TerminalWindow *term){
-  term->cursor_color_fg = clr;
+  term->cursor_color_bg = clr;
 }
 
 void write_char(uint32_t c, TerminalWindow *term){
@@ -165,6 +168,7 @@ void write_char(uint32_t c, TerminalWindow *term){
   term->back_buf[index].codepoint = c;
   term->back_buf[index].fg = term->cursor_color_fg;
   term->back_buf[index].bg = term->cursor_color_bg;
+  term->back_buf[index].style_flags = term->cursor_style_flags;
 }
 
 void write_str(const char *str, TerminalWindow *term){
@@ -181,6 +185,7 @@ void write_str(const char *str, TerminalWindow *term){
     term->back_buf[index].codepoint = *c;
     term->back_buf[index].fg = term->cursor_color_fg;
     term->back_buf[index].bg = term->cursor_color_bg;
+    term->back_buf[index].style_flags = term->cursor_style_flags;
     term->cursor_col++;
     if(term->cursor_col == term->num_of_cols){
       term->cursor_col = 0;
@@ -247,8 +252,11 @@ void display(TerminalWindow *term){
     if (i != 0 && i % term->num_of_cols == 0) putchar('\n');
     Cell cell = term->back_buf[i];
     utf8_encode(cell.codepoint, tmp_c);
-    printf("\x1b[38;5;%um\x1b[48;5;%um%s\x1b[0m", 
-	cell.fg, cell.bg, tmp_c);
+    // styling
+    for (size_t i=0; i < 8; i++){
+      if (cell.style_flags & (1 << i)) printf("\x1b[%zum", i+1);
+    }
+    printf("\x1b[38;5;%um\x1b[48;5;%um%s\x1b[0m", cell.fg, cell.bg, tmp_c);
   }
   fflush(stdout);
 

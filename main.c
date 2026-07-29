@@ -9,6 +9,7 @@ int main(){
 	while(1){
 		fill_clr(RED, &term);
 		move_cursor(0,0, &term);
+		term.cursor_style_flags = BOLD | ITALIC | UNDERLINE;
 		set_color_fg(BLUE, &term);
 		write_str("Hello ", &term);
 		write_str("World!", &term);
