@@ -27,7 +27,7 @@ enum {
   CELL_BOLD = 1 << 0,
   CELL_UNDERLINE = 1 << 1,
   CELL_ITALIC = 1 << 2,
-  CELL_REVERSE = 1 << 3,
+  CELL_STRIKE = 1 << 3,
   CELL_BLINK = 1 << 4,
   CELL_DIM = 1 << 5,
 };
@@ -50,6 +50,44 @@ typedef struct{
 void frame_limiter_init(unsigned int frame_rate, FrameLimiter *frame_limiter);
 void frame_limiter_wait(FrameLimiter *frame_limiter);
 
+typedef struct Rect Rect;
+struct Rect {
+  size_t starte_row, start_col, end_row, end_col;
+  Rect *children;
+};
+Rect draw_rect(size_t start_row, size_t start_col, size_t end_row, size_t end_col);
+void split_vert(Rect *parent, Rect *left, Rect *right, size_t cut);
+void split_horz(Rect *parent, Rect *top, Rect *bottom, size_t cut);
+/*
+Horizontal : ─
+Vertical   : │
+
+Corners:
+┌ ┐
+└ ┘
+
+T-junctions:
+├ ┤
+┬ ┴
+
+Cross:
+┼
+*/
+
+// Keystates like sdl
+enum {
+  TUIK_COUNT = 1,
+};
+typedef struct {
+    bool down[TUIK_COUNT];
+    bool pressed[TUIK_COUNT];
+    bool released[TUIK_COUNT];
+
+    uint32_t text[32];
+    size_t text_len;
+} InputState;
+
+void tui_poll_events(InputState *input);
 #ifdef TUI_IMPLEMENTATION
 TerminalWindow createTermWindow(size_t width, size_t height){
   TerminalWindow output;
@@ -267,5 +305,6 @@ void frame_limiter_wait(FrameLimiter *frame_limiter){
   }
   frame_limiter->last_frame_time = target;
 }
+
 #endif
 #endif
