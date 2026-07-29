@@ -20,6 +20,7 @@ typedef struct {
 typedef struct {
   Cell *front_buf, *back_buf;
   size_t num_of_rows, num_of_cols, cursor_row, cursor_col;
+  uint8_t cursor_color_fg, cursor_color_bg;
   bool first_render;
 } TerminalWindow;
 
@@ -32,10 +33,29 @@ enum {
   CELL_DIM = 1 << 5,
 };
 
+enum {
+  BLACK,
+  MAROON,
+  GREEN,
+  OLIVE,
+  NAVY,
+  PURPLE,
+  TEAL,
+  SILVER,
+  GREY,
+  RED,
+  LIME,
+  YELLOW,
+  BLUE,
+  FUCHSIA,
+  AQUA,
+  WHITE,
+};
+
 TerminalWindow createTermWindow(size_t width, size_t height);
 void move_cursor(size_t row, size_t col, TerminalWindow *term);
-void set_fg_color(uint8_t clr, TerminalWindow *term);
-void set_bg_color(uint8_t clr, TerminalWindow *term);
+void set_color_fg(uint8_t clr, TerminalWindow *term);
+void set_color_bg(uint8_t clr, TerminalWindow *term);
 void write_char(uint32_t c, TerminalWindow *term);
 void write_str(const char *str, TerminalWindow *term);
 void fill_clr(uint8_t clr, TerminalWindow *term);
@@ -132,19 +152,19 @@ void move_cursor(size_t row, size_t col, TerminalWindow *term){
   }
 }
 
-void set_fg_color(uint8_t clr, TerminalWindow *term){
-  size_t index = term->num_of_cols * term->cursor_row + term->cursor_col;
-  term->back_buf[index].fg = clr;
+void set_color_fg(uint8_t clr, TerminalWindow *term){
+  term->cursor_color_fg = clr;
 }
 
-void set_bg_color(uint8_t clr, TerminalWindow *term){
-  size_t index = term->num_of_cols * term->cursor_row + term->cursor_col;
-  term->back_buf[index].bg = clr;
+void set_color_bg(uint8_t clr, TerminalWindow *term){
+  term->cursor_color_fg = clr;
 }
 
 void write_char(uint32_t c, TerminalWindow *term){
   size_t index = term->num_of_cols * term->cursor_row + term->cursor_col;
   term->back_buf[index].codepoint = c;
+  term->back_buf[index].fg = term->cursor_color_fg;
+  term->back_buf[index].bg = term->cursor_color_bg;
 }
 
 void write_str(const char *str, TerminalWindow *term){
@@ -159,6 +179,8 @@ void write_str(const char *str, TerminalWindow *term){
       return;
     }
     term->back_buf[index].codepoint = *c;
+    term->back_buf[index].fg = term->cursor_color_fg;
+    term->back_buf[index].bg = term->cursor_color_bg;
     term->cursor_col++;
     if(term->cursor_col == term->num_of_cols){
       term->cursor_col = 0;
@@ -173,6 +195,7 @@ void fill_clr(uint8_t clr, TerminalWindow *term){
     term->back_buf[i].codepoint = ' ';
     term->back_buf[i].bg = clr;
   }
+  term->cursor_color_bg = clr;
 }
 
 // for utf-8 charset, translates it into null terminated, and returns length

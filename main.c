@@ -7,8 +7,9 @@ int main(){
 	FrameLimiter limiter;
 	frame_limiter_init(FPS, &limiter);
 	while(1){
-		fill_clr(4, &term);
+		fill_clr(RED, &term);
 		move_cursor(0,0, &term);
+		set_color_fg(BLUE, &term);
 		write_str("Hello ", &term);
 		write_str("World!", &term);
 		display(&term);
