@@ -23,3 +23,9 @@
 *.exe
 *.out
 *.app
+
+# ANSI cheat sheet
+ANSI-escape-sequences.md
+
+# Vim swp files
+*.swp
