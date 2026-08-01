@@ -98,6 +98,29 @@ T-junctions:
 Cross:
 ┼
 */
+typedef struct Image Image;
+
+Image *loadImage(const char *path);
+void destroyImage(Image *);
+
+struct Image {
+  unsigned char *pixels;
+  size_t size;
+};
+
+typedef enum {
+    IMG_NEAREST,
+    IMG_BILINEAR,
+    IMG_BICUBIC,
+    IMG_LANCZOS
+} ImageFilter;
+
+void drawImage(
+    TermWindow *win,
+    const Image *img,
+    Rect dst,
+    ImageFilter filter,
+    bool keep_aspect);
 
 // Keystates like sdl
 enum {
