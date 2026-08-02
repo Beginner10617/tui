@@ -9,6 +9,10 @@
 #include <sys/ioctl.h>
 #include <time.h>
 #include <unistd.h>
+#ifdef TUI_IMPLEMENTATION
+#define STB_IMAGE_IMPLEMENTATION
+#endif
+#include "stb_image.h"
 
 typedef struct {
   uint32_t codepoint;
@@ -82,22 +86,15 @@ struct Rect {
 Rect create_rect(size_t start_row, size_t start_col, size_t end_row,
                  size_t end_col);
 void draw_borders(Rect rect, TerminalWindow *term);
-/*
-Horizontal : ─
-Vertical   : │
 
-Corners:
-┌ ┐
-└ ┘
-*/
 typedef struct Image Image;
 
-Image *loadImage(const char *path);
-void destroyImage(Image *);
+Image *load_image(const char *path);
+void destroy_image(Image **img);
 
 struct Image {
-  unsigned char *pixels;
-  size_t size;
+  uint8_t *pixels;
+  size_t width, height;
 };
 
 typedef enum {
@@ -124,7 +121,7 @@ typedef struct {
 } InputState;
 
 void tui_poll_events(InputState *input);
-// #define TUI_IMPLEMENTATION
+#define TUI_IMPLEMENTATION
 #ifdef TUI_IMPLEMENTATION
 TerminalWindow createTermWindow(size_t width, size_t height) {
   TerminalWindow output;
@@ -399,6 +396,81 @@ void draw_borders(Rect rect, TerminalWindow *term) {
       write_char(U'│', term);
     }
   }
+}
+
+Image *load_image(const char *path) {
+  int x, y;
+  unsigned char *data = stbi_load(path, &x, &y, NULL, 3);
+  if (data == NULL) {
+#ifdef DEBUG
+    printf("error[load_image]: Unable to open file %s\n", path);
+#endif
+    return NULL;
+  }
+  Image *output = malloc(sizeof(Image));
+  output->height = y;
+  output->width = x;
+  output->pixels = data;
+  return output;
+}
+
+void destroy_image(Image **img) {
+  if (img == NULL || *img == NULL)
+    return;
+  stbi_image_free((*img)->pixels);
+  free(*img);
+  *img = NULL;
+}
+
+// helper functions
+Image *apply_nearest_neighbour(Image *img, int width, int height) {
+  if (img == NULL) {
+#ifdef DEBUG
+    printf("warning[apply_nearest_neighbour]: NULL passed to "
+           "apply_nearest_neighbour()\n");
+#endif
+    return NULL;
+  }
+  Image *output = malloc(sizeof(Image));
+  output->width = width;
+  output->height = height;
+  output->pixels = malloc(sizeof(uint8_t) * width * height * 3);
+  if (output->pixels == NULL) {
+#ifdef DEBUG
+    printf("error[apply_nearest_neighbour]: Unable to allocate memory for "
+           "transformed image pixels\n");
+#endif
+    return NULL;
+  }
+  double scale_x = (double)img->width / (double)width;
+  double scale_y = (double)img->height / (double)height;
+  for (size_t x = 0; x < width; x++) {
+    for (size_t y = 0; y < height; y++) {
+      size_t nearest_x = round(scale_x * x);
+      size_t nearest_y = round(scale_y * y);
+      output->pixels[x + y * width + 0] =
+          img->pixels[nearest_x + nearest_y * img->width + 0];
+      output->pixels[x + y * width + 1] =
+          img->pixels[nearest_x + nearest_y * img->width + 1];
+      output->pixels[x + y * width + 2] =
+          img->pixels[nearest_x + nearest_y * img->width + 2];
+    }
+  }
+  return output;
+}
+
+uint8_t rgb_to_ansi(uint8_t r, uint8_t g, uint8_t b) {
+  return 16 + 36 * (r * 5) / 255 + 6 * (g * 5) / 255 + (b * 5) / 255;
+}
+
+drawImage(TerminalWindow *win, const Image *img, Rect dst, ImageFilter filter,
+          bool keep_aspect) {
+  // 1. calculate width and height if keep_aspect is true (fit in dst)
+  // 2. call appropriate filter function, and store the transformed image in tmp
+  // 3. store the current state of the cursor
+  // 4. convert pixel data to ansi code and write using the cursor
+  // 5. restore the cursor to original state
+  // 6. destroy the tmp image data
 }
 
 #endif
