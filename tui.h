@@ -77,12 +77,10 @@ void frame_limiter_wait(FrameLimiter *frame_limiter);
 
 typedef struct Rect Rect;
 struct Rect {
-  size_t starte_row, start_col, end_row, end_col;
-  Rect *children;
+  size_t start_row, start_col, end_row, end_col;
 };
-Rect draw_rect(size_t start_row, size_t start_col, size_t end_row, size_t end_col);
-void split_vert(Rect *parent, Rect *left, Rect *right, size_t cut);
-void split_horz(Rect *parent, Rect *top, Rect *bottom, size_t cut);
+Rect create_rect(size_t start_row, size_t start_col, size_t end_row, size_t end_col);
+void draw_rect(Rect rect, TerminalWindow *term);
 /*
 Horizontal : ─
 Vertical   : │
@@ -364,6 +362,17 @@ void frame_limiter_wait(FrameLimiter *frame_limiter){
              errno == EINTR);
   }
   frame_limiter->last_frame_time = target;
+}
+
+Rect create_rect(size_t start_row, size_t start_col, size_t end_row, size_t end_col){
+  Rect out;
+  out.start_row = start_row; out.start_col = start_col;
+  out.end_row = end_row; out.end_col = end_col;
+  return out;
+}
+
+void draw_rect(Rect rect){
+  
 }
 
 #endif
