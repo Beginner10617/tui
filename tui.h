@@ -121,7 +121,6 @@ typedef struct {
 } InputState;
 
 void tui_poll_events(InputState *input);
-#define TUI_IMPLEMENTATION
 #ifdef TUI_IMPLEMENTATION
 TerminalWindow createTermWindow(size_t width, size_t height) {
   TerminalWindow output;
@@ -440,6 +439,7 @@ Image *apply_nearest_neighbour(Image *img, int width, int height) {
     printf("error[apply_nearest_neighbour]: Unable to allocate memory for "
            "transformed image pixels\n");
 #endif
+    free(output);
     return NULL;
   }
   double scale_x = (double)img->width / (double)width;
@@ -460,6 +460,62 @@ Image *apply_nearest_neighbour(Image *img, int width, int height) {
   }
   return output;
 }
+
+Image *apply_bilinear(Image *img, int width, int height) {
+  if (img == NULL) {
+#ifdef DEBUG
+    printf("warning[apply_nearest_neighbour]: NULL passed to "
+           "apply_nearest_neighbour()\n");
+#endif
+    return NULL;
+  }
+  Image *output = malloc(sizeof(Image));
+  output->width = width;
+  output->height = height;
+  output->pixels = malloc(sizeof(uint8_t) * width * height * 3);
+  if (output->pixels == NULL) {
+#ifdef DEBUG
+    printf("error[apply_nearest_neighbour]: Unable to allocate memory for "
+           "transformed image pixels\n");
+#endif
+    free(output);
+    return NULL;
+  }
+  double scale_x = (double)(img->width - 1) / (double)(width - 1);
+  double scale_y = (double)(img->height - 1) / (double)(height - 1);
+  for (size_t x = 0; x < width; x++) {
+    for (size_t y = 0; y < height; y++) {
+      size_t x0 = floor(scale_x * x);
+      size_t y0 = floor(scale_y * y);
+      size_t x1 = x0 + 1;
+      size_t y1 = y0 + 1;
+      if (x1 >= img->width) x1 = x0;
+      if (y1 >= img->height) y1 = y0;
+      double tx = scale_x * x - (double) x0;
+      double ty = scale_y * y - (double) y0;
+      output->pixels[(x + y * width) * 3 + 0] = 
+	      (1-tx) * (1-ty) * img->pixels[(x0 + y0 * img->width) * 3 + 0]
+	    + ( tx ) * (1-ty) * img->pixels[(x1 + y0 * img->width) * 3 + 0]
+	    + (1-tx) * ( ty ) * img->pixels[(x0 + y1 * img->width) * 3 + 0]
+	    + ( tx ) * ( ty ) * img->pixels[(x1 + y1 * img->width) * 3 + 0];
+
+      output->pixels[(x + y * width) * 3 + 1] = 
+	      (1-tx) * (1-ty) * img->pixels[(x0 + y0 * img->width) * 3 + 1]
+	    + ( tx ) * (1-ty) * img->pixels[(x1 + y0 * img->width) * 3 + 1]
+	    + (1-tx) * ( ty ) * img->pixels[(x0 + y1 * img->width) * 3 + 1]
+	    + ( tx ) * ( ty ) * img->pixels[(x1 + y1 * img->width) * 3 + 1];
+
+      output->pixels[(x + y * width) * 3 + 2] = 
+	      (1-tx) * (1-ty) * img->pixels[(x0 + y0 * img->width) * 3 + 2]
+	    + ( tx ) * (1-ty) * img->pixels[(x1 + y0 * img->width) * 3 + 2]
+	    + (1-tx) * ( ty ) * img->pixels[(x0 + y1 * img->width) * 3 + 2]
+	    + ( tx ) * ( ty ) * img->pixels[(x1 + y1 * img->width) * 3 + 2];
+    }
+  }
+  return output;
+}
+
+
 
 uint8_t rgb_to_ansi(uint8_t r, uint8_t g, uint8_t b) {
   return 16 + 36 * (r * 5) / 255 + 6 * (g * 5) / 255 + (b * 5) / 255;
@@ -486,6 +542,7 @@ void draw_image(TerminalWindow *term, Image *img, Rect dst, ImageFilter filter,
     tmp = apply_nearest_neighbour(img, out_w, out_h);
     break;
   case IMG_BILINEAR:
+    tmp = apply_bilinear(img, out_w, out_h);
     break;
   case IMG_BICUBIC:
     break;
