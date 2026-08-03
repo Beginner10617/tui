@@ -104,8 +104,8 @@ typedef enum {
   IMG_LANCZOS
 } ImageFilter;
 
-void drawImage(TerminalWindow *win, const Image *img, Rect dst,
-               ImageFilter filter, bool keep_aspect);
+void draw_image(TerminalWindow *win, Image *img, Rect dst, ImageFilter filter,
+                bool keep_aspect);
 
 // Keystates like sdl
 enum {
@@ -448,12 +448,14 @@ Image *apply_nearest_neighbour(Image *img, int width, int height) {
     for (size_t y = 0; y < height; y++) {
       size_t nearest_x = round(scale_x * x);
       size_t nearest_y = round(scale_y * y);
-      output->pixels[x + y * width + 0] =
-          img->pixels[nearest_x + nearest_y * img->width + 0];
-      output->pixels[x + y * width + 1] =
-          img->pixels[nearest_x + nearest_y * img->width + 1];
-      output->pixels[x + y * width + 2] =
-          img->pixels[nearest_x + nearest_y * img->width + 2];
+      nearest_x = nearest_x >= img->width ? img->width - 1 : nearest_x;
+      nearest_y = nearest_y >= img->height ? img->height - 1 : nearest_y;
+      output->pixels[(x + y * width) * 3 + 0] =
+          img->pixels[(nearest_x + nearest_y * img->width) * 3 + 0];
+      output->pixels[(x + y * width) * 3 + 1] =
+          img->pixels[(nearest_x + nearest_y * img->width) * 3 + 1];
+      output->pixels[(x + y * width) * 3 + 2] =
+          img->pixels[(nearest_x + nearest_y * img->width) * 3 + 2];
     }
   }
   return output;
@@ -463,14 +465,58 @@ uint8_t rgb_to_ansi(uint8_t r, uint8_t g, uint8_t b) {
   return 16 + 36 * (r * 5) / 255 + 6 * (g * 5) / 255 + (b * 5) / 255;
 }
 
-drawImage(TerminalWindow *win, const Image *img, Rect dst, ImageFilter filter,
-          bool keep_aspect) {
-  // 1. calculate width and height if keep_aspect is true (fit in dst)
-  // 2. call appropriate filter function, and store the transformed image in tmp
-  // 3. store the current state of the cursor
-  // 4. convert pixel data to ansi code and write using the cursor
-  // 5. restore the cursor to original state
-  // 6. destroy the tmp image data
+void draw_image(TerminalWindow *term, Image *img, Rect dst, ImageFilter filter,
+                bool keep_aspect) {
+
+  size_t width = 1 + dst.end_col - dst.start_col,
+         height = (1 + dst.end_row - dst.start_row), pixel_h = 2 * height;
+  double scale_x = (double)img->width / (double)width;
+  double scale_y = (double)img->height / (double)pixel_h;
+  if (keep_aspect) {
+    double scale = fmax(scale_x, scale_y);
+    scale_x = scale;
+    scale_y = scale;
+  }
+  size_t out_w = round((double)img->width / scale_x);
+  size_t out_h = round((double)img->height / scale_y);
+
+  Image *tmp = NULL;
+  switch (filter) {
+  case IMG_NEAREST:
+    tmp = apply_nearest_neighbour(img, out_w, out_h);
+    break;
+  case IMG_BILINEAR:
+    break;
+  case IMG_BICUBIC:
+    break;
+  case IMG_LANCZOS:
+    break;
+  default:
+#ifdef DEBUG
+    printf("error[draw_image]: Invalid filter argument\n");
+#endif
+    return;
+  }
+
+  for (size_t row = dst.start_row;
+       row < dst.start_row + out_h / 2 && row < term->num_of_rows; row++) {
+    for (size_t col = dst.start_col;
+         col < dst.start_col + out_w && col < term->num_of_cols; col++) {
+
+      move_cursor(row, col, term);
+      size_t x = col - dst.start_col, y = row - dst.start_row;
+      size_t index1 = 3 * (x + 2 * y * out_w);
+      size_t index2 = 3 * (x + (2 * y + 1) * out_w);
+
+      uint8_t r1 = tmp->pixels[index1 + 0], r2 = tmp->pixels[index2 + 0];
+      uint8_t g1 = tmp->pixels[index1 + 1], g2 = tmp->pixels[index2 + 1];
+      uint8_t b1 = tmp->pixels[index1 + 2], b2 = tmp->pixels[index2 + 2];
+      set_color_fg(rgb_to_ansi(r1, g1, b1), term);
+      set_color_bg(rgb_to_ansi(r2, g2, b2), term);
+      write_char(U'▀', term);
+    }
+  }
+  destroy_image(&tmp);
 }
 
 #endif
