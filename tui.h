@@ -10,9 +10,11 @@
 #include <time.h>
 #include <unistd.h>
 #ifdef TUI_IMPLEMENTATION
+#define _USE_MATH_DEFINES
 #define STB_IMAGE_IMPLEMENTATION
 #endif
 #include "stb_image.h"
+#include <math.h>
 
 typedef struct {
   uint32_t codepoint;
@@ -530,6 +532,11 @@ double catmull_rom(double x){
   return 0;
 }
 
+double clamp(double d, double min, double max) {
+  const double t = d < min ? min : d;
+  return t > max ? max : t;
+}
+
 Image *apply_bicubic(Image *img, int width, int height){
   if (img == NULL) {
 #ifdef DEBUG
@@ -568,11 +575,11 @@ Image *apply_bicubic(Image *img, int width, int height){
       double R[4], G[4], B[4];
       for(size_t i = 0; i < 4; i++){
         R[i] = 0; G[i] = 0; B[i] = 0;
-	for(int m = -1; m <= 2; m++){ 
-	  R[i] += catmull_rom(m - u) * img->pixels[(_x[m + 1] + _y[i] * img->width) * 3 + 0];
-	  G[i] += catmull_rom(m - u) * img->pixels[(_x[m + 1] + _y[i] * img->width) * 3 + 1];
-	  B[i] += catmull_rom(m - u) * img->pixels[(_x[m + 1] + _y[i] * img->width) * 3 + 2];
-	}
+        for(int m = -1; m <= 2; m++){
+          R[i] += catmull_rom(m - u) * img->pixels[(_x[m + 1] + _y[i] * img->width) * 3 + 0];
+          G[i] += catmull_rom(m - u) * img->pixels[(_x[m + 1] + _y[i] * img->width) * 3 + 1];
+          B[i] += catmull_rom(m - u) * img->pixels[(_x[m + 1] + _y[i] * img->width) * 3 + 2];
+        }
       }
       double r = 0, g = 0, b = 0;
       for(int k = -1; k <= 2; k++){
@@ -580,12 +587,9 @@ Image *apply_bicubic(Image *img, int width, int height){
         g += G[k + 1] * catmull_rom(k - v);
         b += B[k + 1] * catmull_rom(k - v);
       }
-      if (r < 0.0) r = 0.0;
-      else if (r > 255.0) r = 255.0;
-      if (g < 0.0) g = 0.0;
-      else if (g > 255.0) g = 255.0;
-      if (b < 0.0) b = 0.0;
-      else if (b > 255.0) b = 255.0;
+      r = clamp(r, 0, 255.0);
+      g = clamp(g, 0, 255.0);
+      b = clamp(b, 0, 255.0);
       output->pixels[(x + y * width) * 3 + 0] = (uint8_t)lround(r);
       output->pixels[(x + y * width) * 3 + 1] = (uint8_t)lround(g);
       output->pixels[(x + y * width) * 3 + 2] = (uint8_t)lround(b);
@@ -594,6 +598,77 @@ Image *apply_bicubic(Image *img, int width, int height){
   return output;
 }
 
+/*
+ Lanczos kernel with fixed a = 3
+ */
+int lanczos_a = 3;
+
+double _lanczos(double x) {
+  if (x == 0.0)
+    return 1.0;
+  return lanczos_a * sin(M_PI * x) * sin(M_PI * x / lanczos_a) /
+         (M_PI * M_PI * x * x);
+}
+
+Image *apply_lanczos(Image *img, int width, int height) {
+  if (img == NULL) {
+#ifdef DEBUG
+    printf("warning[apply_lanczos]: NULL passed to "
+           "apply_lanczos()\n");
+#endif
+    return NULL;
+  }
+  Image *output = malloc(sizeof(Image));
+  output->width = width;
+  output->height = height;
+  output->pixels = malloc(sizeof(uint8_t) * width * height * 3);
+  if (output->pixels == NULL) {
+#ifdef DEBUG
+    printf("error[apply_lanczos]: Unable to allocate memory for "
+           "transformed image pixels\n");
+#endif
+    free(output);
+    return NULL;
+  }
+  double scale_x = (double)(img->width - 1) / (double)(width - 1);
+  double scale_y = (double)(img->height - 1) / (double)(height - 1);
+  double s_x = (scale_x > 1.0 ? scale_x : 1.0);
+  double s_y = (scale_y > 1.0 ? scale_y : 1.0);
+  for (size_t y = 0; y < height; y++) {
+    for (size_t x = 0; x < width; x++) {
+      int ix = floor(scale_x * x);
+      int iy = floor(scale_y * y);
+      double r = 0, g = 0, b = 0, weight_sum = 0;
+      int rad_x = ceil(lanczos_a * s_x);
+      int rad_y = ceil(lanczos_a * s_y);
+      for (int i = -rad_x + 1; i <= rad_x; i++) {
+        for (int j = -rad_y + 1; j <= rad_y; j++) {
+          int src_x = ix + i;
+          int src_y = iy + j;
+          int look_x = clamp((double)src_x, 0, (double)img->width - 1);
+          int look_y = clamp((double)src_y, 0, (double)img->height - 1);
+          double wx = _lanczos(((double)src_x - scale_x * x) / s_x);
+          double wy = _lanczos(((double)src_y - scale_y * y) / s_y);
+          double weight = wx * wy;
+          weight_sum += weight;
+          r += weight * img->pixels[(look_x + look_y * img->width) * 3 + 0];
+          g += weight * img->pixels[(look_x + look_y * img->width) * 3 + 1];
+          b += weight * img->pixels[(look_x + look_y * img->width) * 3 + 2];
+        }
+      }
+      r = r / weight_sum;
+      g = g / weight_sum;
+      b = b / weight_sum;
+      r = clamp(r, 0, 255.0);
+      g = clamp(g, 0, 255.0);
+      b = clamp(b, 0, 255.0);
+      output->pixels[(x + y * width) * 3 + 0] = (uint8_t)lround(r);
+      output->pixels[(x + y * width) * 3 + 1] = (uint8_t)lround(g);
+      output->pixels[(x + y * width) * 3 + 2] = (uint8_t)lround(b);
+    }
+  }
+  return output;
+}
 uint8_t rgb_to_ansi(uint8_t r, uint8_t g, uint8_t b) {
   return 16 + 36 * (r * 5) / 255 + 6 * (g * 5) / 255 + (b * 5) / 255;
 }
@@ -625,6 +700,7 @@ void draw_image(TerminalWindow *term, Image *img, Rect dst, ImageFilter filter,
     tmp = apply_bicubic(img, out_w, out_h);
     break;
   case IMG_LANCZOS:
+    tmp = apply_lanczos(img, out_w, out_h);
     break;
   default:
 #ifdef DEBUG
