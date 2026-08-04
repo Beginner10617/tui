@@ -9,6 +9,8 @@
 #include <sys/ioctl.h>
 #include <time.h>
 #include <unistd.h>
+#include <termios.h>
+#include <fcntl.h>
 #ifdef TUI_IMPLEMENTATION
 #define _USE_MATH_DEFINES
 #define STB_IMAGE_IMPLEMENTATION
@@ -30,6 +32,8 @@ typedef struct {
   uint8_t cursor_style_flags;
   bool first_render;
 } TerminalWindow;
+
+static struct termios og_config;
 
 enum {
   BOLD = 1 << 0,
@@ -111,18 +115,53 @@ void draw_image(TerminalWindow *win, Image *img, Rect dst, ImageFilter filter,
 
 // Keystates like sdl
 enum {
+  TUIK_SPACE,
+  TUIK_ENTER,
+  TUIK_TAB,
+  TUIK_BACK,
+  TUIK_ESCAPE,
+  TUIK_CONTROL,
+  TUIK_ALT,
+
+  TUIK_UP,
+  TUIK_DOWN,
+  TUIK_LEFT,
+  TUIK_RIGHT,
+
+  TUIK_HOME,
+  TUIK_END,
+  TUIK_INSERT,
+  TUIK_DEL,
+  TUIK_PG_UP,
+  TUIK_PG_DN,
+
+  TUIK_F1,
+  TUIK_F2,
+  TUIK_F3,
+  TUIK_F4,
+  TUIK_F5,
+  TUIK_F6,
+  TUIK_F7,
+  TUIK_F8,
+  TUIK_F9,
+  TUIK_F10,
+  TUIK_F11,
+  TUIK_F12,
+
+  TUIK_CHAR,
+
   TUIK_COUNT = 1,
 };
 typedef struct {
   bool down[TUIK_COUNT];
   bool pressed[TUIK_COUNT];
   bool released[TUIK_COUNT];
-
-  uint32_t text[32];
-  size_t text_len;
+  char c_data;
 } InputState;
 
-void tui_poll_events(InputState *input);
+void disable_raw_mode();
+void enable_raw_mode();
+void tui_poll_events(InputState *input, TerminalWindow *term);
 
 #ifdef TUI_IMPLEMENTATION
 TerminalWindow createTermWindow(size_t width, size_t height) {
@@ -728,6 +767,28 @@ void draw_image(TerminalWindow *term, Image *img, Rect dst, ImageFilter filter,
     }
   }
   destroy_image(&tmp);
+}
+
+void disable_raw_mode(){
+  tcsetattr(STDIN_FILENO, TCSAFLUSH, &og_config);
+}
+void enable_raw_mode(){
+  tcgetattr(STDIN_FILENO, &og_config);
+  atexit(disable_raw_mode);
+  struct termios raw = og_config;
+  raw.c_lflag &= ~(ICANON | ECHO);
+  raw.c_cc[VMIN] = 1;
+  raw.c_cc[VTIME] = 0;
+  tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
+
+  int flags = fcntl(STDIN_FILENO, F_GETFL);
+  fcntl(STDIN_FILENO, F_SETFL, flags | O_NONBLOCK);
+}
+
+void tui_poll_events(InputState *input, TerminalWindow *term){
+  char tmp;
+  ssize_t status = read(STDIN_FILENO, &tmp, 1);
+  if (status == 1) printf("%c\n", tmp);
 }
 
 #endif
