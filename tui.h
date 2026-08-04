@@ -121,6 +121,7 @@ typedef struct {
 } InputState;
 
 void tui_poll_events(InputState *input);
+
 #ifdef TUI_IMPLEMENTATION
 TerminalWindow createTermWindow(size_t width, size_t height) {
   TerminalWindow output;
@@ -444,8 +445,8 @@ Image *apply_nearest_neighbour(Image *img, int width, int height) {
   }
   double scale_x = (double)img->width / (double)width;
   double scale_y = (double)img->height / (double)height;
-  for (size_t x = 0; x < width; x++) {
-    for (size_t y = 0; y < height; y++) {
+  for (size_t y = 0; y < height; y++) {
+    for (size_t x = 0; x < width; x++) {
       size_t nearest_x = round(scale_x * x);
       size_t nearest_y = round(scale_y * y);
       nearest_x = nearest_x >= img->width ? img->width - 1 : nearest_x;
@@ -464,8 +465,8 @@ Image *apply_nearest_neighbour(Image *img, int width, int height) {
 Image *apply_bilinear(Image *img, int width, int height) {
   if (img == NULL) {
 #ifdef DEBUG
-    printf("warning[apply_nearest_neighbour]: NULL passed to "
-           "apply_nearest_neighbour()\n");
+    printf("warning[apply_bilinear]: NULL passed to "
+           "apply_bilinear()\n");
 #endif
     return NULL;
   }
@@ -475,7 +476,7 @@ Image *apply_bilinear(Image *img, int width, int height) {
   output->pixels = malloc(sizeof(uint8_t) * width * height * 3);
   if (output->pixels == NULL) {
 #ifdef DEBUG
-    printf("error[apply_nearest_neighbour]: Unable to allocate memory for "
+    printf("error[apply_bilinear]: Unable to allocate memory for "
            "transformed image pixels\n");
 #endif
     free(output);
@@ -483,8 +484,8 @@ Image *apply_bilinear(Image *img, int width, int height) {
   }
   double scale_x = (double)(img->width - 1) / (double)(width - 1);
   double scale_y = (double)(img->height - 1) / (double)(height - 1);
-  for (size_t x = 0; x < width; x++) {
-    for (size_t y = 0; y < height; y++) {
+  for (size_t y = 0; y < height; y++) {
+    for (size_t x = 0; x < width; x++) {
       size_t x0 = floor(scale_x * x);
       size_t y0 = floor(scale_y * y);
       size_t x1 = x0 + 1;
@@ -515,7 +516,83 @@ Image *apply_bilinear(Image *img, int width, int height) {
   return output;
 }
 
+double catmull_rom(double x){
+  double abs_x = fabs(x);
+  double x_2 = x * x;
+  double abs_x_3 = x_2 * abs_x;
 
+  if (abs_x <= 1){ 
+    return 1.5 * abs_x_3 - 2.5 * x_2 + 1;
+  }
+  else if (abs_x < 2 && 1 < abs_x){
+    return -0.5 * abs_x_3 + 2.5 * x_2 - 4 * abs_x + 2;
+  }
+  return 0;
+}
+
+Image *apply_bicubic(Image *img, int width, int height){
+  if (img == NULL) {
+#ifdef DEBUG
+    printf("warning[apply_bicubic]: NULL passed to "
+           "apply_bicubic()\n");
+#endif
+    return NULL;
+  }
+  Image *output = malloc(sizeof(Image));
+  output->width = width;
+  output->height = height;
+  output->pixels = malloc(sizeof(uint8_t) * width * height * 3);
+  if (output->pixels == NULL) {
+#ifdef DEBUG
+    printf("error[apply_bicubic]: Unable to allocate memory for "
+           "transformed image pixels\n");
+#endif
+    free(output);
+    return NULL;
+  }
+  double scale_x = (double)(img->width - 1) / (double)(width - 1);
+  double scale_y = (double)(img->height - 1) / (double)(height - 1);
+  for (size_t y = 0; y < height; y++) {
+    for (size_t x = 0; x < width; x++) {
+      size_t _x[4], _y[4];
+      _x[1] = floor(scale_x * x);
+      _y[1] = floor(scale_y * y);
+      double u = scale_x * x - (double) _x[1];
+      double v = scale_y * y - (double) _y[1];
+      _x[2] = _x[1] + 1 < img->width ? _x[1] + 1 : _x[1];
+      _y[2] = _y[1] + 1 < img->height ? _y[1] + 1 : _y[1];
+      _x[0] = _x[1] > 0 ? _x[1] - 1 : _x[1];
+      _y[0] = _y[1] > 0 ? _y[1] - 1 : _y[1];
+      _x[3] = _x[1] + 2 < img->width ? _x[1] + 2 : _x[1];
+      _y[3] = _y[1] + 2 < img->height ? _y[1] + 2 : _y[1];
+      double R[4], G[4], B[4];
+      for(size_t i = 0; i < 4; i++){
+        R[i] = 0; G[i] = 0; B[i] = 0;
+	for(int m = -1; m <= 2; m++){ 
+	  R[i] += catmull_rom(m - u) * img->pixels[(_x[m + 1] + _y[i] * img->width) * 3 + 0];
+	  G[i] += catmull_rom(m - u) * img->pixels[(_x[m + 1] + _y[i] * img->width) * 3 + 1];
+	  B[i] += catmull_rom(m - u) * img->pixels[(_x[m + 1] + _y[i] * img->width) * 3 + 2];
+	}
+      }
+      double r = 0, g = 0, b = 0;
+      for(int k = -1; k <= 2; k++){
+        r += R[k + 1] * catmull_rom(k - v);
+        g += G[k + 1] * catmull_rom(k - v);
+        b += B[k + 1] * catmull_rom(k - v);
+      }
+      if (r < 0.0) r = 0.0;
+      else if (r > 255.0) r = 255.0;
+      if (g < 0.0) g = 0.0;
+      else if (g > 255.0) g = 255.0;
+      if (b < 0.0) b = 0.0;
+      else if (b > 255.0) b = 255.0;
+      output->pixels[(x + y * width) * 3 + 0] = (uint8_t)lround(r);
+      output->pixels[(x + y * width) * 3 + 1] = (uint8_t)lround(g);
+      output->pixels[(x + y * width) * 3 + 2] = (uint8_t)lround(b);
+    }
+  }
+  return output;
+}
 
 uint8_t rgb_to_ansi(uint8_t r, uint8_t g, uint8_t b) {
   return 16 + 36 * (r * 5) / 255 + 6 * (g * 5) / 255 + (b * 5) / 255;
@@ -545,6 +622,7 @@ void draw_image(TerminalWindow *term, Image *img, Rect dst, ImageFilter filter,
     tmp = apply_bilinear(img, out_w, out_h);
     break;
   case IMG_BICUBIC:
+    tmp = apply_bicubic(img, out_w, out_h);
     break;
   case IMG_LANCZOS:
     break;
