@@ -121,7 +121,6 @@ enum {
   TUIK_BACK,
   TUIK_ESCAPE,
   TUIK_CONTROL,
-  TUIK_ALT,
 
   TUIK_UP,
   TUIK_DOWN,
@@ -150,12 +149,10 @@ enum {
 
   TUIK_CHAR,
 
-  TUIK_COUNT = 1,
+  TUIK_COUNT,
 };
 typedef struct {
-  bool down[TUIK_COUNT];
   bool pressed[TUIK_COUNT];
-  bool released[TUIK_COUNT];
   char c_data;
 } InputState;
 
@@ -778,7 +775,7 @@ void enable_raw_mode(){
   struct termios raw = og_config;
   raw.c_lflag &= ~(ICANON | ECHO);
   raw.c_cc[VMIN] = 1;
-  raw.c_cc[VTIME] = 0;
+  raw.c_cc[VTIME] = 1;
   tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
 
   int flags = fcntl(STDIN_FILENO, F_GETFL);
@@ -786,9 +783,188 @@ void enable_raw_mode(){
 }
 
 void tui_poll_events(InputState *input, TerminalWindow *term){
+  for (int i = 0; i < TUIK_COUNT; i++) input->pressed[i] = false;
   char tmp;
   ssize_t status = read(STDIN_FILENO, &tmp, 1);
-  if (status == 1) printf("%c\n", tmp);
+  if(status != 1) return;
+  if (tmp > ' ' && tmp <= '~'){
+    input->c_data = tmp;
+    input->pressed[TUIK_CHAR] = true;
+  } else {
+    if (tmp == 0x20) input->pressed[TUIK_SPACE] = true;
+    else if (tmp == 0x0A) input->pressed[TUIK_ENTER] = true;
+    else if (tmp == 0x09) input->pressed[TUIK_TAB] = true;
+    else if (tmp == 0x7F) input->pressed[TUIK_BACK] = true;
+
+    for(int i = 0x01; i <= 0x1A; i++){
+      if (tmp == i) {
+        input->pressed[TUIK_CONTROL] = true;
+	input->pressed[TUIK_CHAR] = true;
+	input->c_data = i + 'A' - 1;
+      }
+    }
+
+    if (tmp == 0x1B){
+      status = read(STDIN_FILENO, &tmp, 1);
+      if (status != 1) input->pressed[TUIK_ESCAPE] = true;
+      else if (tmp == 'O'){
+        status = read(STDIN_FILENO, &tmp, 1);
+	if (tmp == 'H'&&status==1) input->pressed[TUIK_HOME] = true;
+	else if (tmp == 'F'&&status==1) input->pressed[TUIK_END] = true;
+	else if (tmp == 'P'&&status==1) input->pressed[TUIK_F1] = true;
+	else if (tmp == 'Q'&&status==1) input->pressed[TUIK_F2] = true;
+	else if (tmp == 'R'&&status==1) input->pressed[TUIK_F3] = true;
+	else if (tmp == 'S'&&status==1) input->pressed[TUIK_F4] = true;
+      }
+      else if (tmp == '['){
+        status = read(STDIN_FILENO, &tmp, 1);
+	if (tmp == 'A'&&status==1) input->pressed[TUIK_UP] = true;
+	else if (tmp == 'B'&&status==1) input->pressed[TUIK_DOWN] = true;
+	else if (tmp == 'C'&&status==1) input->pressed[TUIK_RIGHT]= true;
+	else if (tmp == 'D'&&status==1) input->pressed[TUIK_LEFT] = true;
+	else if (tmp == 'H'&&status==1) input->pressed[TUIK_HOME] = true;
+	else if (tmp == 'F'&&status==1) input->pressed[TUIK_END]  = true;
+
+	else if (tmp == '1'&&status==1){
+	  status = read(STDIN_FILENO, &tmp, 1);
+	  if (tmp == '5'&&status==1){
+	    status = read(STDIN_FILENO, &tmp, 1);
+	    input->pressed[TUIK_F5] = (tmp=='~'&&status==1);
+	  } else if (tmp == '7'&&status==1){
+	    read(STDIN_FILENO, &tmp, 1);
+	    input->pressed[TUIK_F6] = (tmp=='~'&&status==1);
+	  } else if (tmp == '8'&&status==1){
+	    read(STDIN_FILENO, &tmp, 1);
+	    input->pressed[TUIK_F7] = (tmp=='~'&&status==1);
+	  } else if (tmp == '9'&&status==1){
+	    read(STDIN_FILENO, &tmp, 1);
+	    input->pressed[TUIK_F8] = (tmp=='~'&&status==1);
+	  }
+	} else if (tmp == '2'&&status==1){
+	    status = read(STDIN_FILENO, &tmp, 1);
+	    if (tmp == '~'&&status==1){
+	      input->pressed[TUIK_INSERT] = true;
+	    } else if (tmp=='0'&&status==1){
+	      status = read(STDIN_FILENO, &tmp, 1);
+	      input->pressed[TUIK_F9] = (tmp=='~'&&status==1);
+	    } else if (tmp=='1'&&status==1){
+	      status = read(STDIN_FILENO, &tmp, 1);
+	      input->pressed[TUIK_F10] = (tmp=='~'&&status==1);
+	    } else if (tmp=='3'&&status==1){
+	      status = read(STDIN_FILENO, &tmp, 1);
+	      input->pressed[TUIK_F11] = (tmp=='~'&&status==1);
+	    } else if (tmp=='4'&&status==1){
+	      status = read(STDIN_FILENO, &tmp, 1);
+	      input->pressed[TUIK_F12] = (tmp=='~'&&status==1);
+	    }
+	}
+	else if (tmp == '3'&&status==1){
+	  status = read(STDIN_FILENO, &tmp, 1);
+	  input->pressed[TUIK_DEL] = (tmp=='~'&&status==1);
+	} else if (tmp == '5'&&status==1){
+	  status = read(STDIN_FILENO, &tmp, 1);
+	  input->pressed[TUIK_PG_UP] = (tmp=='~'&&status==1);
+	} else if (tmp == '6'&&status==1){
+	  status = read(STDIN_FILENO, &tmp, 1);
+	  input->pressed[TUIK_PG_DN] = (tmp=='~'&&status==1);
+	}
+      }
+    }
+  }
+}
+
+void debug_print_key(int key_code){
+  switch (key_code){
+    case TUIK_SPACE:
+      printf("TUIK_SPACE");
+      break;  //
+    case TUIK_ENTER:
+      printf("TUIK_ENTER");
+      break;  //
+    case TUIK_TAB:
+      printf("TUIK_TAB");
+      break;    //
+    case TUIK_BACK:
+      printf("TUIK_BACK");
+      break;   //
+    case TUIK_ESCAPE:
+      printf("TUIK_ESCAPE");
+      break; //
+    case TUIK_CONTROL:
+      printf("TUIK_CONTROL");
+      break;//
+    case TUIK_UP:
+      printf("TUIK_UP");
+      break;     //
+    case TUIK_DOWN:
+      printf("TUIK_DOWN");
+      break;   //
+    case TUIK_LEFT:
+      printf("TUIK_LEFT");
+      break;   //
+    case TUIK_RIGHT:
+      printf("TUIK_RIGHT");
+      break;  //
+    case TUIK_HOME:
+      printf("TUIK_HOME");
+      break;   //
+    case TUIK_END:
+      printf("TUIK_END");
+      break;    // 
+    case TUIK_INSERT:
+      printf("TUIK_INSERT");
+      break;
+    case TUIK_DEL:
+      printf("TUIK_DEL");
+      break;
+    case TUIK_PG_UP:
+      printf("TUIK_PG_UP");
+      break;
+    case TUIK_PG_DN:
+      printf("TUIK_PG_DN");
+      break;
+    case TUIK_F1:
+      printf("TUIK_F1");
+      break;     //
+    case TUIK_F2:
+      printf("TUIK_F2");
+      break;     //
+    case TUIK_F3:
+      printf("TUIK_F3");
+      break;     //
+    case TUIK_F4:
+      printf("TUIK_F4");
+      break;     //
+    case TUIK_F5:
+      printf("TUIK_F5");
+      break;
+    case TUIK_F6:
+      printf("TUIK_F6");
+      break;
+    case TUIK_F7:
+      printf("TUIK_F7");
+      break;
+    case TUIK_F8:
+      printf("TUIK_F8");
+      break;
+    case TUIK_F9:
+      printf("TUIK_F9");
+      break;
+    case TUIK_F10:
+      printf("TUIK_F10");
+      break;
+    case TUIK_F11:
+      printf("TUIK_F11");
+      break;
+    case TUIK_F12:
+      printf("TUIK_F12");
+      break;
+    case TUIK_CHAR:
+      printf("TUIK_CHAR");
+      break;  //
+    default:
+      printf("Unknown keycode");
+  }
 }
 
 #endif
