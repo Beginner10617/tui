@@ -73,6 +73,7 @@ void write_str(const char *str, TerminalWindow *term);
 void fill_clr(uint8_t clr, TerminalWindow *term);
 
 void display(TerminalWindow *term);
+void show_cursor();
 void sleep_ms(long ms);
 
 typedef struct {
@@ -949,5 +950,8 @@ char* debug_print_key(int key_code){
   }
 }
 
+void show_cursor(){
+  dprintf(STDOUT_FILENO, "\x1b[?25h");
+}
 #endif
 #endif
