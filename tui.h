@@ -1,3 +1,53 @@
+/*
+===============================================================================
+
+TUI - Lightweight terminal graphics library.
+
+Provides double-buffered rendering, Unicode text output, ANSI colors and text
+styles, image drawing, SDL-style keyboard input, and frame limiting for
+building terminal applications and games.
+
+Define TUI_IMPLEMENTATION in one source file before including this header.
+
+-------------------------------------------------------------------------------
+
+Examples
+
+Total five examples are provided demonstrating how the library should be used:
+┌──────────────────────────────────────────┐    
+│  styles.c   Text styling                 │ 
+│  bounce.c   Box bouncing off screen edges│ 	
+│  rect.c     Drawing a rectangle          │ 		
+│  image.c    Displaying a pixel art image │ 		
+│  input.c    Input handling               │ 		
+│  pong.c     A pong game                  │ 		
+└──────────────────────────────────────────┘
+===============================================================================
+
+MIT License
+
+Copyright (c) 2026 Wasi Husain
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the “Software”), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+===============================================================================
+*/
+
 #ifndef TUI
 #define TUI
 #include <errno.h>
