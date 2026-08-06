@@ -13,7 +13,7 @@ Define TUI_IMPLEMENTATION in one source file before including this header.
 
 Examples
 
-Total five examples are provided demonstrating how the library should be used:
+Total six examples are provided demonstrating how the library should be used:
 ┌──────────────────────────────────────────┐    
 │  styles.c   Text styling                 │ 
 │  bounce.c   Box bouncing off screen edges│ 	
