@@ -6,11 +6,9 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/ioctl.h>
 #include <time.h>
 #include <unistd.h>
 #include <termios.h>
-#include <fcntl.h>
 #ifdef TUI_IMPLEMENTATION
 #define _USE_MATH_DEFINES
 #define STB_IMAGE_IMPLEMENTATION
@@ -110,7 +108,7 @@ typedef enum {
   IMG_LANCZOS
 } ImageFilter;
 
-void draw_image(TerminalWindow *win, Image *img, Rect dst, ImageFilter filter,
+void draw_image(Image *img, TerminalWindow *term, Rect dst, ImageFilter filter,
                 bool keep_aspect);
 
 // Keystates like sdl
@@ -158,7 +156,7 @@ typedef struct {
 
 void disable_raw_mode();
 void enable_raw_mode();
-void tui_poll_events(InputState *input, TerminalWindow *term);
+void tui_poll_events(InputState *input);
 
 #ifdef TUI_IMPLEMENTATION
 TerminalWindow createTermWindow(size_t width, size_t height) {
@@ -286,39 +284,27 @@ static int utf8_encode(uint32_t cp, char out[5]) {
 void display(TerminalWindow *term) {
   if (term->first_render) {
     term->first_render = false;
-
-    struct winsize ws;
-    ws.ws_row = term->num_of_rows;
-    ws.ws_col = term->num_of_cols;
-    ws.ws_xpixel = 0;
-    ws.ws_ypixel = 0;
-    ioctl(STDOUT_FILENO, TIOCSWINSZ, &ws);
-
-    if (ioctl(STDOUT_FILENO, TIOCSWINSZ, &ws) == -1) {
-      perror("ioctl");
-    }
-    printf("\x1b[?25l"); // Hide cursor
+    dprintf(STDOUT_FILENO, "\x1b[?25l"); // Hide cursor
   }
-  printf("\x1b[H"); // Move cursor to (0,0)
+  dprintf(STDOUT_FILENO, "\x1b[H"); // Move cursor to (0,0)
   char tmp_c[5];
   for (size_t i = 0; i < term->num_of_cols * term->num_of_rows; i++) {
     if (i != 0 && i % term->num_of_cols == 0)
-      putchar('\n');
+      dprintf(STDOUT_FILENO, "\r\n");
     Cell cell = term->back_buf[i];
     utf8_encode(cell.codepoint, tmp_c);
     // styling
     for (size_t i = 0; i < 8; i++) {
       if (cell.style_flags & (1 << i))
-        printf("\x1b[%zum", i + (i < 5 ? 1 : 2));
+        dprintf(STDOUT_FILENO, "\x1b[%zum", i + (i < 5 ? 1 : 2));
     }
-    printf("\x1b[38;5;%um\x1b[48;5;%um%s\x1b[0m", cell.fg, cell.bg, tmp_c);
+    dprintf(STDOUT_FILENO, "\x1b[38;5;%um\x1b[48;5;%um%s\x1b[0m", cell.fg, cell.bg, tmp_c);
   }
-  fflush(stdout);
 
   Cell *tmp = term->front_buf;
   term->front_buf = term->back_buf;
   term->back_buf = tmp;
-  printf("\x1b[H"); // Move cursor to (0,0)
+  fflush(stdout);
 }
 
 void sleep_ms(long ms) {
@@ -709,9 +695,8 @@ uint8_t rgb_to_ansi(uint8_t r, uint8_t g, uint8_t b) {
   return 16 + 36 * (r * 5) / 255 + 6 * (g * 5) / 255 + (b * 5) / 255;
 }
 
-void draw_image(TerminalWindow *term, Image *img, Rect dst, ImageFilter filter,
-                bool keep_aspect) {
-
+void draw_image(Image *img, TerminalWindow *term, Rect dst, ImageFilter filter,
+                bool keep_aspect){
   size_t width = 1 + dst.end_col - dst.start_col,
          height = (1 + dst.end_row - dst.start_row), pixel_h = 2 * height;
   double scale_x = (double)img->width / (double)width;
@@ -773,16 +758,13 @@ void enable_raw_mode(){
   tcgetattr(STDIN_FILENO, &og_config);
   atexit(disable_raw_mode);
   struct termios raw = og_config;
-  raw.c_lflag &= ~(ICANON | ECHO);
-  raw.c_cc[VMIN] = 1;
-  raw.c_cc[VTIME] = 1;
-  tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
-
-  int flags = fcntl(STDIN_FILENO, F_GETFL);
-  fcntl(STDIN_FILENO, F_SETFL, flags | O_NONBLOCK);
+  raw.c_lflag &= ~ (ICANON | ECHO);
+  raw.c_cc[VMIN] = 0;
+  raw.c_cc[VTIME] = 0;
+  tcsetattr(STDIN_FILENO, TCSANOW, &raw);
 }
 
-void tui_poll_events(InputState *input, TerminalWindow *term){
+void tui_poll_events(InputState *input){
   for (int i = 0; i < TUIK_COUNT; i++) input->pressed[i] = false;
   char tmp;
   ssize_t status = read(STDIN_FILENO, &tmp, 1);
@@ -873,97 +855,97 @@ void tui_poll_events(InputState *input, TerminalWindow *term){
   }
 }
 
-void debug_print_key(int key_code){
+char* debug_print_key(int key_code){
   switch (key_code){
     case TUIK_SPACE:
-      printf("TUIK_SPACE");
+      return ("TUIK_SPACE");
       break;  //
     case TUIK_ENTER:
-      printf("TUIK_ENTER");
+      return ("TUIK_ENTER");
       break;  //
     case TUIK_TAB:
-      printf("TUIK_TAB");
+      return ("TUIK_TAB");
       break;    //
     case TUIK_BACK:
-      printf("TUIK_BACK");
+      return ("TUIK_BACK");
       break;   //
     case TUIK_ESCAPE:
-      printf("TUIK_ESCAPE");
+      return ("TUIK_ESCAPE");
       break; //
     case TUIK_CONTROL:
-      printf("TUIK_CONTROL");
+      return ("TUIK_CONTROL");
       break;//
     case TUIK_UP:
-      printf("TUIK_UP");
+      return ("TUIK_UP");
       break;     //
     case TUIK_DOWN:
-      printf("TUIK_DOWN");
+      return ("TUIK_DOWN");
       break;   //
     case TUIK_LEFT:
-      printf("TUIK_LEFT");
+      return ("TUIK_LEFT");
       break;   //
     case TUIK_RIGHT:
-      printf("TUIK_RIGHT");
+      return ("TUIK_RIGHT");
       break;  //
     case TUIK_HOME:
-      printf("TUIK_HOME");
+      return ("TUIK_HOME");
       break;   //
     case TUIK_END:
-      printf("TUIK_END");
+      return ("TUIK_END");
       break;    // 
     case TUIK_INSERT:
-      printf("TUIK_INSERT");
+      return ("TUIK_INSERT");
       break;
     case TUIK_DEL:
-      printf("TUIK_DEL");
+      return ("TUIK_DEL");
       break;
     case TUIK_PG_UP:
-      printf("TUIK_PG_UP");
+      return ("TUIK_PG_UP");
       break;
     case TUIK_PG_DN:
-      printf("TUIK_PG_DN");
+      return ("TUIK_PG_DN");
       break;
     case TUIK_F1:
-      printf("TUIK_F1");
+      return ("TUIK_F1");
       break;     //
     case TUIK_F2:
-      printf("TUIK_F2");
+      return ("TUIK_F2");
       break;     //
     case TUIK_F3:
-      printf("TUIK_F3");
+      return ("TUIK_F3");
       break;     //
     case TUIK_F4:
-      printf("TUIK_F4");
+      return ("TUIK_F4");
       break;     //
     case TUIK_F5:
-      printf("TUIK_F5");
+      return ("TUIK_F5");
       break;
     case TUIK_F6:
-      printf("TUIK_F6");
+      return ("TUIK_F6");
       break;
     case TUIK_F7:
-      printf("TUIK_F7");
+      return ("TUIK_F7");
       break;
     case TUIK_F8:
-      printf("TUIK_F8");
+      return ("TUIK_F8");
       break;
     case TUIK_F9:
-      printf("TUIK_F9");
+      return ("TUIK_F9");
       break;
     case TUIK_F10:
-      printf("TUIK_F10");
+      return ("TUIK_F10");
       break;
     case TUIK_F11:
-      printf("TUIK_F11");
+      return ("TUIK_F11");
       break;
     case TUIK_F12:
-      printf("TUIK_F12");
+      return ("TUIK_F12");
       break;
     case TUIK_CHAR:
-      printf("TUIK_CHAR");
+      return ("TUIK_CHAR");
       break;  //
     default:
-      printf("Unknown keycode");
+      return ("Unknown keycode");
   }
 }
 
