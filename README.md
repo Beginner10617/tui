@@ -7,11 +7,11 @@ TUI provides a simple API for building terminal applications, animations, and sm
 ## DEMO
 
 <div align="center">
-<img src="img.png" alt="image.c" width="400" height="250">
-<img src="pong.png" alt="pong.c" width="400" height="250">
+<img src="demos/img.png" alt="image.c" width="400" height="250">
+<img src="demos/pong.png" alt="pong.c" width="400" height="250">
 </div>
 <div align="center">
-<img src="bounce.gif" alt="bounce.c" width="400" height="250">
+<img src="demos/bounce.gif" alt="bounce.c" width="400" height="250">
 </div>
 
 ## Features
