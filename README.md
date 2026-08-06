@@ -100,5 +100,5 @@ destroy_image(&img);
 
 This project is licensed under the **MIT License**.
 
-It also includes **stb_image**, which is distributed under its own permissive license. See the corresponding license file or the `stb_image.h` header for details.
+It also includes **stb_image**, which is distributed under its own permissive license. See the `stb_image.h` header for details.
 
