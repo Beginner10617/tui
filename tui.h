@@ -14,13 +14,13 @@ Define TUI_IMPLEMENTATION in one source file before including this header.
 Examples
 
 Total six examples are provided demonstrating how the library should be used:
-┌──────────────────────────────────────────┐    
-│  styles.c   Text styling                 │ 
-│  bounce.c   Box bouncing off screen edges│ 	
-│  rect.c     Drawing a rectangle          │ 		
-│  image.c    Displaying a pixel art image │ 		
-│  input.c    Input handling               │ 		
-│  pong.c     A pong game                  │ 		
+┌──────────────────────────────────────────┐
+│  styles.c   Text styling                 │
+│  bounce.c   Box bouncing off screen edges│
+│  rect.c     Drawing a rectangle          │
+│  image.c    Displaying a pixel art image │
+│  input.c    Input handling               │
+│  pong.c     A pong game                  │
 └──────────────────────────────────────────┘
 ===============================================================================
 
@@ -56,9 +56,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <termios.h>
 #include <time.h>
 #include <unistd.h>
-#include <termios.h>
 #ifdef TUI_IMPLEMENTATION
 #define _USE_MATH_DEFINES
 #define STB_IMAGE_IMPLEMENTATION
@@ -349,7 +349,8 @@ void display(TerminalWindow *term) {
       if (cell.style_flags & (1 << i))
         dprintf(STDOUT_FILENO, "\x1b[%zum", i + (i < 5 ? 1 : 2));
     }
-    dprintf(STDOUT_FILENO, "\x1b[38;5;%um\x1b[48;5;%um%s\x1b[0m", cell.fg, cell.bg, tmp_c);
+    dprintf(STDOUT_FILENO, "\x1b[38;5;%um\x1b[48;5;%um%s\x1b[0m", cell.fg,
+            cell.bg, tmp_c);
   }
 
   Cell *tmp = term->front_buf;
@@ -565,41 +566,42 @@ Image *apply_bilinear(Image *img, int width, int height) {
       size_t y0 = floor(scale_y * y);
       size_t x1 = x0 + 1;
       size_t y1 = y0 + 1;
-      if (x1 >= img->width) x1 = x0;
-      if (y1 >= img->height) y1 = y0;
-      double tx = scale_x * x - (double) x0;
-      double ty = scale_y * y - (double) y0;
-      output->pixels[(x + y * width) * 3 + 0] = 
-	      (1-tx) * (1-ty) * img->pixels[(x0 + y0 * img->width) * 3 + 0]
-	    + ( tx ) * (1-ty) * img->pixels[(x1 + y0 * img->width) * 3 + 0]
-	    + (1-tx) * ( ty ) * img->pixels[(x0 + y1 * img->width) * 3 + 0]
-	    + ( tx ) * ( ty ) * img->pixels[(x1 + y1 * img->width) * 3 + 0];
+      if (x1 >= img->width)
+        x1 = x0;
+      if (y1 >= img->height)
+        y1 = y0;
+      double tx = scale_x * x - (double)x0;
+      double ty = scale_y * y - (double)y0;
+      output->pixels[(x + y * width) * 3 + 0] =
+          (1 - tx) * (1 - ty) * img->pixels[(x0 + y0 * img->width) * 3 + 0] +
+          (tx) * (1 - ty) * img->pixels[(x1 + y0 * img->width) * 3 + 0] +
+          (1 - tx) * (ty)*img->pixels[(x0 + y1 * img->width) * 3 + 0] +
+          (tx) * (ty)*img->pixels[(x1 + y1 * img->width) * 3 + 0];
 
-      output->pixels[(x + y * width) * 3 + 1] = 
-	      (1-tx) * (1-ty) * img->pixels[(x0 + y0 * img->width) * 3 + 1]
-	    + ( tx ) * (1-ty) * img->pixels[(x1 + y0 * img->width) * 3 + 1]
-	    + (1-tx) * ( ty ) * img->pixels[(x0 + y1 * img->width) * 3 + 1]
-	    + ( tx ) * ( ty ) * img->pixels[(x1 + y1 * img->width) * 3 + 1];
+      output->pixels[(x + y * width) * 3 + 1] =
+          (1 - tx) * (1 - ty) * img->pixels[(x0 + y0 * img->width) * 3 + 1] +
+          (tx) * (1 - ty) * img->pixels[(x1 + y0 * img->width) * 3 + 1] +
+          (1 - tx) * (ty)*img->pixels[(x0 + y1 * img->width) * 3 + 1] +
+          (tx) * (ty)*img->pixels[(x1 + y1 * img->width) * 3 + 1];
 
-      output->pixels[(x + y * width) * 3 + 2] = 
-	      (1-tx) * (1-ty) * img->pixels[(x0 + y0 * img->width) * 3 + 2]
-	    + ( tx ) * (1-ty) * img->pixels[(x1 + y0 * img->width) * 3 + 2]
-	    + (1-tx) * ( ty ) * img->pixels[(x0 + y1 * img->width) * 3 + 2]
-	    + ( tx ) * ( ty ) * img->pixels[(x1 + y1 * img->width) * 3 + 2];
+      output->pixels[(x + y * width) * 3 + 2] =
+          (1 - tx) * (1 - ty) * img->pixels[(x0 + y0 * img->width) * 3 + 2] +
+          (tx) * (1 - ty) * img->pixels[(x1 + y0 * img->width) * 3 + 2] +
+          (1 - tx) * (ty)*img->pixels[(x0 + y1 * img->width) * 3 + 2] +
+          (tx) * (ty)*img->pixels[(x1 + y1 * img->width) * 3 + 2];
     }
   }
   return output;
 }
 
-double catmull_rom(double x){
+double catmull_rom(double x) {
   double abs_x = fabs(x);
   double x_2 = x * x;
   double abs_x_3 = x_2 * abs_x;
 
-  if (abs_x <= 1){ 
+  if (abs_x <= 1) {
     return 1.5 * abs_x_3 - 2.5 * x_2 + 1;
-  }
-  else if (abs_x < 2 && 1 < abs_x){
+  } else if (abs_x < 2 && 1 < abs_x) {
     return -0.5 * abs_x_3 + 2.5 * x_2 - 4 * abs_x + 2;
   }
   return 0;
@@ -610,7 +612,7 @@ double clamp(double d, double min, double max) {
   return t > max ? max : t;
 }
 
-Image *apply_bicubic(Image *img, int width, int height){
+Image *apply_bicubic(Image *img, int width, int height) {
   if (img == NULL) {
 #ifdef DEBUG
     printf("warning[apply_bicubic]: NULL passed to "
@@ -637,8 +639,8 @@ Image *apply_bicubic(Image *img, int width, int height){
       size_t _x[4], _y[4];
       _x[1] = floor(scale_x * x);
       _y[1] = floor(scale_y * y);
-      double u = scale_x * x - (double) _x[1];
-      double v = scale_y * y - (double) _y[1];
+      double u = scale_x * x - (double)_x[1];
+      double v = scale_y * y - (double)_y[1];
       _x[2] = _x[1] + 1 < img->width ? _x[1] + 1 : _x[1];
       _y[2] = _y[1] + 1 < img->height ? _y[1] + 1 : _y[1];
       _x[0] = _x[1] > 0 ? _x[1] - 1 : _x[1];
@@ -646,16 +648,21 @@ Image *apply_bicubic(Image *img, int width, int height){
       _x[3] = _x[1] + 2 < img->width ? _x[1] + 2 : _x[1];
       _y[3] = _y[1] + 2 < img->height ? _y[1] + 2 : _y[1];
       double R[4], G[4], B[4];
-      for(size_t i = 0; i < 4; i++){
-        R[i] = 0; G[i] = 0; B[i] = 0;
-        for(int m = -1; m <= 2; m++){
-          R[i] += catmull_rom(m - u) * img->pixels[(_x[m + 1] + _y[i] * img->width) * 3 + 0];
-          G[i] += catmull_rom(m - u) * img->pixels[(_x[m + 1] + _y[i] * img->width) * 3 + 1];
-          B[i] += catmull_rom(m - u) * img->pixels[(_x[m + 1] + _y[i] * img->width) * 3 + 2];
+      for (size_t i = 0; i < 4; i++) {
+        R[i] = 0;
+        G[i] = 0;
+        B[i] = 0;
+        for (int m = -1; m <= 2; m++) {
+          R[i] += catmull_rom(m - u) *
+                  img->pixels[(_x[m + 1] + _y[i] * img->width) * 3 + 0];
+          G[i] += catmull_rom(m - u) *
+                  img->pixels[(_x[m + 1] + _y[i] * img->width) * 3 + 1];
+          B[i] += catmull_rom(m - u) *
+                  img->pixels[(_x[m + 1] + _y[i] * img->width) * 3 + 2];
         }
       }
       double r = 0, g = 0, b = 0;
-      for(int k = -1; k <= 2; k++){
+      for (int k = -1; k <= 2; k++) {
         r += R[k + 1] * catmull_rom(k - v);
         g += G[k + 1] * catmull_rom(k - v);
         b += B[k + 1] * catmull_rom(k - v);
@@ -747,7 +754,7 @@ uint8_t rgb_to_ansi(uint8_t r, uint8_t g, uint8_t b) {
 }
 
 void draw_image(Image *img, TerminalWindow *term, Rect dst, ImageFilter filter,
-                bool keep_aspect){
+                bool keep_aspect) {
   size_t width = 1 + dst.end_col - dst.start_col,
          height = (1 + dst.end_row - dst.start_row), pixel_h = 2 * height;
   double scale_x = (double)img->width / (double)width;
@@ -802,206 +809,214 @@ void draw_image(Image *img, TerminalWindow *term, Rect dst, ImageFilter filter,
   destroy_image(&tmp);
 }
 
-void disable_raw_mode(){
-  tcsetattr(STDIN_FILENO, TCSAFLUSH, &og_config);
-}
-void enable_raw_mode(){
+void disable_raw_mode() { tcsetattr(STDIN_FILENO, TCSAFLUSH, &og_config); }
+void enable_raw_mode() {
   tcgetattr(STDIN_FILENO, &og_config);
   atexit(disable_raw_mode);
   struct termios raw = og_config;
-  raw.c_lflag &= ~ (ICANON | ECHO);
+  raw.c_lflag &= ~(ICANON | ECHO);
   raw.c_cc[VMIN] = 0;
   raw.c_cc[VTIME] = 0;
   tcsetattr(STDIN_FILENO, TCSANOW, &raw);
 }
 
-void tui_poll_events(InputState *input){
-  for (int i = 0; i < TUIK_COUNT; i++) input->pressed[i] = false;
+void tui_poll_events(InputState *input) {
+  for (int i = 0; i < TUIK_COUNT; i++)
+    input->pressed[i] = false;
   char tmp;
   ssize_t status = read(STDIN_FILENO, &tmp, 1);
-  if(status != 1) return;
-  if (tmp > ' ' && tmp <= '~'){
+  if (status != 1)
+    return;
+  if (tmp > ' ' && tmp <= '~') {
     input->c_data = tmp;
     input->pressed[TUIK_CHAR] = true;
   } else {
-    if (tmp == 0x20) input->pressed[TUIK_SPACE] = true;
-    else if (tmp == 0x0A) input->pressed[TUIK_ENTER] = true;
-    else if (tmp == 0x09) input->pressed[TUIK_TAB] = true;
-    else if (tmp == 0x7F) input->pressed[TUIK_BACK] = true;
-
-    for(int i = 0x01; i <= 0x1A; i++){
-      if (tmp == i) {
-        input->pressed[TUIK_CONTROL] = true;
-	input->pressed[TUIK_CHAR] = true;
-	input->c_data = i + 'A' - 1;
-      }
-    }
-
-    if (tmp == 0x1B){
+    if (tmp == 0x20)
+      input->pressed[TUIK_SPACE] = true;
+    else if (tmp == 0x0A)
+      input->pressed[TUIK_ENTER] = true;
+    else if (tmp == 0x09)
+      input->pressed[TUIK_TAB] = true;
+    else if (tmp == 0x7F)
+      input->pressed[TUIK_BACK] = true;
+    else if (tmp >= 0x01 && tmp <= 0x1A) {
+      input->pressed[TUIK_CONTROL] = true;
+      input->pressed[TUIK_CHAR] = true;
+      input->c_data = tmp + 'A' - 1;
+    } else if (tmp == 0x1B) {
       status = read(STDIN_FILENO, &tmp, 1);
-      if (status != 1) input->pressed[TUIK_ESCAPE] = true;
-      else if (tmp == 'O'){
+      if (status != 1)
+        input->pressed[TUIK_ESCAPE] = true;
+      else if (tmp == 'O') {
         status = read(STDIN_FILENO, &tmp, 1);
-	if (tmp == 'H'&&status==1) input->pressed[TUIK_HOME] = true;
-	else if (tmp == 'F'&&status==1) input->pressed[TUIK_END] = true;
-	else if (tmp == 'P'&&status==1) input->pressed[TUIK_F1] = true;
-	else if (tmp == 'Q'&&status==1) input->pressed[TUIK_F2] = true;
-	else if (tmp == 'R'&&status==1) input->pressed[TUIK_F3] = true;
-	else if (tmp == 'S'&&status==1) input->pressed[TUIK_F4] = true;
-      }
-      else if (tmp == '['){
+        if (tmp == 'H' && status == 1)
+          input->pressed[TUIK_HOME] = true;
+        else if (tmp == 'F' && status == 1)
+          input->pressed[TUIK_END] = true;
+        else if (tmp == 'P' && status == 1)
+          input->pressed[TUIK_F1] = true;
+        else if (tmp == 'Q' && status == 1)
+          input->pressed[TUIK_F2] = true;
+        else if (tmp == 'R' && status == 1)
+          input->pressed[TUIK_F3] = true;
+        else if (tmp == 'S' && status == 1)
+          input->pressed[TUIK_F4] = true;
+      } else if (tmp == '[') {
         status = read(STDIN_FILENO, &tmp, 1);
-	if (tmp == 'A'&&status==1) input->pressed[TUIK_UP] = true;
-	else if (tmp == 'B'&&status==1) input->pressed[TUIK_DOWN] = true;
-	else if (tmp == 'C'&&status==1) input->pressed[TUIK_RIGHT]= true;
-	else if (tmp == 'D'&&status==1) input->pressed[TUIK_LEFT] = true;
-	else if (tmp == 'H'&&status==1) input->pressed[TUIK_HOME] = true;
-	else if (tmp == 'F'&&status==1) input->pressed[TUIK_END]  = true;
+        if (tmp == 'A' && status == 1)
+          input->pressed[TUIK_UP] = true;
+        else if (tmp == 'B' && status == 1)
+          input->pressed[TUIK_DOWN] = true;
+        else if (tmp == 'C' && status == 1)
+          input->pressed[TUIK_RIGHT] = true;
+        else if (tmp == 'D' && status == 1)
+          input->pressed[TUIK_LEFT] = true;
+        else if (tmp == 'H' && status == 1)
+          input->pressed[TUIK_HOME] = true;
+        else if (tmp == 'F' && status == 1)
+          input->pressed[TUIK_END] = true;
 
-	else if (tmp == '1'&&status==1){
-	  status = read(STDIN_FILENO, &tmp, 1);
-	  if (tmp == '5'&&status==1){
-	    status = read(STDIN_FILENO, &tmp, 1);
-	    input->pressed[TUIK_F5] = (tmp=='~'&&status==1);
-	  } else if (tmp == '7'&&status==1){
-	    read(STDIN_FILENO, &tmp, 1);
-	    input->pressed[TUIK_F6] = (tmp=='~'&&status==1);
-	  } else if (tmp == '8'&&status==1){
-	    read(STDIN_FILENO, &tmp, 1);
-	    input->pressed[TUIK_F7] = (tmp=='~'&&status==1);
-	  } else if (tmp == '9'&&status==1){
-	    read(STDIN_FILENO, &tmp, 1);
-	    input->pressed[TUIK_F8] = (tmp=='~'&&status==1);
-	  }
-	} else if (tmp == '2'&&status==1){
-	    status = read(STDIN_FILENO, &tmp, 1);
-	    if (tmp == '~'&&status==1){
-	      input->pressed[TUIK_INSERT] = true;
-	    } else if (tmp=='0'&&status==1){
-	      status = read(STDIN_FILENO, &tmp, 1);
-	      input->pressed[TUIK_F9] = (tmp=='~'&&status==1);
-	    } else if (tmp=='1'&&status==1){
-	      status = read(STDIN_FILENO, &tmp, 1);
-	      input->pressed[TUIK_F10] = (tmp=='~'&&status==1);
-	    } else if (tmp=='3'&&status==1){
-	      status = read(STDIN_FILENO, &tmp, 1);
-	      input->pressed[TUIK_F11] = (tmp=='~'&&status==1);
-	    } else if (tmp=='4'&&status==1){
-	      status = read(STDIN_FILENO, &tmp, 1);
-	      input->pressed[TUIK_F12] = (tmp=='~'&&status==1);
-	    }
-	}
-	else if (tmp == '3'&&status==1){
-	  status = read(STDIN_FILENO, &tmp, 1);
-	  input->pressed[TUIK_DEL] = (tmp=='~'&&status==1);
-	} else if (tmp == '5'&&status==1){
-	  status = read(STDIN_FILENO, &tmp, 1);
-	  input->pressed[TUIK_PG_UP] = (tmp=='~'&&status==1);
-	} else if (tmp == '6'&&status==1){
-	  status = read(STDIN_FILENO, &tmp, 1);
-	  input->pressed[TUIK_PG_DN] = (tmp=='~'&&status==1);
-	}
+        else if (tmp == '1' && status == 1) {
+          status = read(STDIN_FILENO, &tmp, 1);
+          if (tmp == '5' && status == 1) {
+            status = read(STDIN_FILENO, &tmp, 1);
+            input->pressed[TUIK_F5] = (tmp == '~' && status == 1);
+          } else if (tmp == '7' && status == 1) {
+            read(STDIN_FILENO, &tmp, 1);
+            input->pressed[TUIK_F6] = (tmp == '~' && status == 1);
+          } else if (tmp == '8' && status == 1) {
+            read(STDIN_FILENO, &tmp, 1);
+            input->pressed[TUIK_F7] = (tmp == '~' && status == 1);
+          } else if (tmp == '9' && status == 1) {
+            read(STDIN_FILENO, &tmp, 1);
+            input->pressed[TUIK_F8] = (tmp == '~' && status == 1);
+          }
+        } else if (tmp == '2' && status == 1) {
+          status = read(STDIN_FILENO, &tmp, 1);
+          if (tmp == '~' && status == 1) {
+            input->pressed[TUIK_INSERT] = true;
+          } else if (tmp == '0' && status == 1) {
+            status = read(STDIN_FILENO, &tmp, 1);
+            input->pressed[TUIK_F9] = (tmp == '~' && status == 1);
+          } else if (tmp == '1' && status == 1) {
+            status = read(STDIN_FILENO, &tmp, 1);
+            input->pressed[TUIK_F10] = (tmp == '~' && status == 1);
+          } else if (tmp == '3' && status == 1) {
+            status = read(STDIN_FILENO, &tmp, 1);
+            input->pressed[TUIK_F11] = (tmp == '~' && status == 1);
+          } else if (tmp == '4' && status == 1) {
+            status = read(STDIN_FILENO, &tmp, 1);
+            input->pressed[TUIK_F12] = (tmp == '~' && status == 1);
+          }
+        } else if (tmp == '3' && status == 1) {
+          status = read(STDIN_FILENO, &tmp, 1);
+          input->pressed[TUIK_DEL] = (tmp == '~' && status == 1);
+        } else if (tmp == '5' && status == 1) {
+          status = read(STDIN_FILENO, &tmp, 1);
+          input->pressed[TUIK_PG_UP] = (tmp == '~' && status == 1);
+        } else if (tmp == '6' && status == 1) {
+          status = read(STDIN_FILENO, &tmp, 1);
+          input->pressed[TUIK_PG_DN] = (tmp == '~' && status == 1);
+        }
       }
     }
   }
 }
 
-char* debug_print_key(int key_code){
-  switch (key_code){
-    case TUIK_SPACE:
-      return ("TUIK_SPACE");
-      break;  //
-    case TUIK_ENTER:
-      return ("TUIK_ENTER");
-      break;  //
-    case TUIK_TAB:
-      return ("TUIK_TAB");
-      break;    //
-    case TUIK_BACK:
-      return ("TUIK_BACK");
-      break;   //
-    case TUIK_ESCAPE:
-      return ("TUIK_ESCAPE");
-      break; //
-    case TUIK_CONTROL:
-      return ("TUIK_CONTROL");
-      break;//
-    case TUIK_UP:
-      return ("TUIK_UP");
-      break;     //
-    case TUIK_DOWN:
-      return ("TUIK_DOWN");
-      break;   //
-    case TUIK_LEFT:
-      return ("TUIK_LEFT");
-      break;   //
-    case TUIK_RIGHT:
-      return ("TUIK_RIGHT");
-      break;  //
-    case TUIK_HOME:
-      return ("TUIK_HOME");
-      break;   //
-    case TUIK_END:
-      return ("TUIK_END");
-      break;    // 
-    case TUIK_INSERT:
-      return ("TUIK_INSERT");
-      break;
-    case TUIK_DEL:
-      return ("TUIK_DEL");
-      break;
-    case TUIK_PG_UP:
-      return ("TUIK_PG_UP");
-      break;
-    case TUIK_PG_DN:
-      return ("TUIK_PG_DN");
-      break;
-    case TUIK_F1:
-      return ("TUIK_F1");
-      break;     //
-    case TUIK_F2:
-      return ("TUIK_F2");
-      break;     //
-    case TUIK_F3:
-      return ("TUIK_F3");
-      break;     //
-    case TUIK_F4:
-      return ("TUIK_F4");
-      break;     //
-    case TUIK_F5:
-      return ("TUIK_F5");
-      break;
-    case TUIK_F6:
-      return ("TUIK_F6");
-      break;
-    case TUIK_F7:
-      return ("TUIK_F7");
-      break;
-    case TUIK_F8:
-      return ("TUIK_F8");
-      break;
-    case TUIK_F9:
-      return ("TUIK_F9");
-      break;
-    case TUIK_F10:
-      return ("TUIK_F10");
-      break;
-    case TUIK_F11:
-      return ("TUIK_F11");
-      break;
-    case TUIK_F12:
-      return ("TUIK_F12");
-      break;
-    case TUIK_CHAR:
-      return ("TUIK_CHAR");
-      break;  //
-    default:
-      return ("Unknown keycode");
+char *debug_print_key(int key_code) {
+  switch (key_code) {
+  case TUIK_SPACE:
+    return ("TUIK_SPACE");
+    break; //
+  case TUIK_ENTER:
+    return ("TUIK_ENTER");
+    break; //
+  case TUIK_TAB:
+    return ("TUIK_TAB");
+    break; //
+  case TUIK_BACK:
+    return ("TUIK_BACK");
+    break; //
+  case TUIK_ESCAPE:
+    return ("TUIK_ESCAPE");
+    break; //
+  case TUIK_CONTROL:
+    return ("TUIK_CONTROL");
+    break; //
+  case TUIK_UP:
+    return ("TUIK_UP");
+    break; //
+  case TUIK_DOWN:
+    return ("TUIK_DOWN");
+    break; //
+  case TUIK_LEFT:
+    return ("TUIK_LEFT");
+    break; //
+  case TUIK_RIGHT:
+    return ("TUIK_RIGHT");
+    break; //
+  case TUIK_HOME:
+    return ("TUIK_HOME");
+    break; //
+  case TUIK_END:
+    return ("TUIK_END");
+    break; //
+  case TUIK_INSERT:
+    return ("TUIK_INSERT");
+    break;
+  case TUIK_DEL:
+    return ("TUIK_DEL");
+    break;
+  case TUIK_PG_UP:
+    return ("TUIK_PG_UP");
+    break;
+  case TUIK_PG_DN:
+    return ("TUIK_PG_DN");
+    break;
+  case TUIK_F1:
+    return ("TUIK_F1");
+    break; //
+  case TUIK_F2:
+    return ("TUIK_F2");
+    break; //
+  case TUIK_F3:
+    return ("TUIK_F3");
+    break; //
+  case TUIK_F4:
+    return ("TUIK_F4");
+    break; //
+  case TUIK_F5:
+    return ("TUIK_F5");
+    break;
+  case TUIK_F6:
+    return ("TUIK_F6");
+    break;
+  case TUIK_F7:
+    return ("TUIK_F7");
+    break;
+  case TUIK_F8:
+    return ("TUIK_F8");
+    break;
+  case TUIK_F9:
+    return ("TUIK_F9");
+    break;
+  case TUIK_F10:
+    return ("TUIK_F10");
+    break;
+  case TUIK_F11:
+    return ("TUIK_F11");
+    break;
+  case TUIK_F12:
+    return ("TUIK_F12");
+    break;
+  case TUIK_CHAR:
+    return ("TUIK_CHAR");
+    break; //
+  default:
+    return ("Unknown keycode");
   }
 }
 
-void show_cursor(){
-  dprintf(STDOUT_FILENO, "\x1b[?25h");
-}
+void show_cursor() { dprintf(STDOUT_FILENO, "\x1b[?25h"); }
 #endif
 #endif
