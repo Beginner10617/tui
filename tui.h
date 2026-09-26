@@ -273,28 +273,70 @@ void write_char(uint32_t c, TerminalWindow *term) {
   term->back_buf[index].style_flags = term->cursor_style_flags;
 }
 
+size_t utf8_to_utf32(const char *src, uint32_t *dst, size_t dst_size) {
+  size_t n = 0;
+
+  while (*src && (n < dst_size || dst == NULL)) {
+    uint32_t cp;
+    unsigned char c = (unsigned char)*src;
+
+    if (c < 0x80) {
+      // 1-byte UTF-8
+      cp = c;
+      src += 1;
+    } else if ((c & 0xE0) == 0xC0) {
+      // 2-byte UTF-8
+      cp = c & 0x1F;
+      cp = (cp << 6) | ((unsigned char)src[1] & 0x3F);
+      src += 2;
+    } else if ((c & 0xF0) == 0xE0) {
+      // 3-byte UTF-8
+      cp = c & 0x0F;
+      cp = (cp << 6) | ((unsigned char)src[1] & 0x3F);
+      cp = (cp << 6) | ((unsigned char)src[2] & 0x3F);
+      src += 3;
+    } else if ((c & 0xF8) == 0xF0) {
+      // 4-byte UTF-8
+      cp = c & 0x07;
+      cp = (cp << 6) | ((unsigned char)src[1] & 0x3F);
+      cp = (cp << 6) | ((unsigned char)src[2] & 0x3F);
+      cp = (cp << 6) | ((unsigned char)src[3] & 0x3F);
+      src += 4;
+    } else {
+      // Invalid UTF-8
+      cp = 0xFFFD;
+      src += 1;
+    }
+    if (dst)
+      dst[n] = cp;
+    n++;
+  }
+  return n;
+}
+
 void write_str(const char *str, TerminalWindow *term) {
   size_t index = term->num_of_cols * term->cursor_row + term->cursor_col;
   // assuimng null terminated
-  const char *c = str;
-  while (*c) {
-    if (index >= term->num_of_cols * term->num_of_rows) {
+  size_t sz = utf8_to_utf32(str, NULL, 0);
+  uint32_t codepoints[sz];
+  utf8_to_utf32(str, codepoints, sz);
+
+  if (sz >= term->num_of_cols * term->num_of_rows) {
 #ifdef DEBUG
-      printf("warning[write_str]: string length exceeded buffer size\n");
+    printf("warning[write_str]: string length exceeded buffer size\n");
 #endif
-      return;
-    }
-    term->back_buf[index].codepoint = *c;
-    term->back_buf[index].fg = term->cursor_color_fg;
-    term->back_buf[index].bg = term->cursor_color_bg;
-    term->back_buf[index].style_flags = term->cursor_style_flags;
+    return;
+  }
+  for (int i = 0; i < sz; i++) {
+    term->back_buf[index + i].codepoint = codepoints[i];
+    term->back_buf[index + i].fg = term->cursor_color_fg;
+    term->back_buf[index + i].bg = term->cursor_color_bg;
+    term->back_buf[index + i].style_flags = term->cursor_style_flags;
     term->cursor_col++;
     if (term->cursor_col == term->num_of_cols) {
       term->cursor_col = 0;
       term->cursor_row++;
     }
-    index++;
-    c++;
   }
 }
 
