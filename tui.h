@@ -141,6 +141,7 @@ struct Rect {
 Rect create_rect(size_t start_row, size_t start_col, size_t end_row,
                  size_t end_col);
 void draw_borders(Rect rect, TerminalWindow *term);
+void draw_rounded_borders(Rect rect, TerminalWindow *term);
 
 typedef struct Image Image;
 
@@ -459,6 +460,41 @@ void draw_borders(Rect rect, TerminalWindow *term) {
         write_char(U'└', term);
       else if (col == rect.end_col)
         write_char(U'┘', term);
+    }
+  }
+  for (size_t row = rect.start_row + 1;
+       row < rect.end_row && row < term->num_of_rows; row++) {
+    if (rect.start_col < term->num_of_cols) {
+      move_cursor(row, rect.start_col, term);
+      write_char(U'│', term);
+    }
+    if (rect.end_row < term->num_of_rows) {
+      move_cursor(row, rect.end_col, term);
+      write_char(U'│', term);
+    }
+  }
+}
+
+void draw_rounded_borders(Rect rect, TerminalWindow *term) {
+  for (size_t col = rect.start_col;
+       col <= rect.end_col && col < term->num_of_cols; col++) {
+    if (rect.start_row < term->num_of_rows) {
+      move_cursor(rect.start_row, col, term);
+      if (col > rect.start_col && col < rect.end_col)
+        write_char(U'─', term);
+      else if (col == rect.start_col)
+        write_char(U'╭', term);
+      else if (col == rect.end_col)
+        write_char(U'╮', term);
+    }
+    if (rect.end_row < term->num_of_rows) {
+      move_cursor(rect.end_row, col, term);
+      if (col > rect.start_col && col < rect.end_col)
+        write_char(U'─', term);
+      else if (col == rect.start_col)
+        write_char(U'╰', term);
+      else if (col == rect.end_col)
+        write_char(U'╯', term);
     }
   }
   for (size_t row = rect.start_row + 1;
