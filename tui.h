@@ -120,6 +120,7 @@ void set_color_fg(uint8_t clr, TerminalWindow *term);
 void set_color_bg(uint8_t clr, TerminalWindow *term);
 void write_char(uint32_t c, TerminalWindow *term);
 void write_str(const char *str, TerminalWindow *term);
+void write_str_lim(const char *str, size_t sz, TerminalWindow *term);
 void fill_clr(uint8_t clr, TerminalWindow *term);
 
 void display(TerminalWindow *term);
@@ -339,6 +340,11 @@ void write_str(const char *str, TerminalWindow *term) {
       term->cursor_row++;
     }
   }
+}
+
+void write_str_lim(const char *str, size_t sz, TerminalWindow *term) {
+  write_str(str + (strlen(str) < sz ? 0 : strlen(str) - sz + 1), term);
+  return;
 }
 
 void fill_clr(uint8_t clr, TerminalWindow *term) {
