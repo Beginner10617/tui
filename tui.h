@@ -120,7 +120,8 @@ void set_color_fg(uint8_t clr, TerminalWindow *term);
 void set_color_bg(uint8_t clr, TerminalWindow *term);
 void write_char(uint32_t c, TerminalWindow *term);
 void write_str(const char *str, TerminalWindow *term);
-void write_str_lim(const char *str, size_t sz, TerminalWindow *term);
+void write_str_suffix(const char *str, size_t sz, TerminalWindow *term);
+void write_str_prefix(const char *str, size_t sz, TerminalWindow *term);
 void fill_clr(uint8_t clr, TerminalWindow *term);
 
 void display(TerminalWindow *term);
@@ -342,9 +343,36 @@ void write_str(const char *str, TerminalWindow *term) {
   }
 }
 
-void write_str_lim(const char *str, size_t sz, TerminalWindow *term) {
+void write_str_suffix(const char *str, size_t sz, TerminalWindow *term) {
   write_str(str + (strlen(str) < sz ? 0 : strlen(str) - sz + 1), term);
   return;
+}
+
+void write_str_prefix(const char *str, size_t sz, TerminalWindow *term) {
+  size_t index = term->num_of_cols * term->cursor_row + term->cursor_col;
+  // assuimng null terminated
+  size_t utf_sz = utf8_to_utf32(str, NULL, 0);
+  uint32_t codepoints[utf_sz];
+  utf8_to_utf32(str, codepoints, utf_sz);
+
+  if (utf_sz >= term->num_of_cols * term->num_of_rows) {
+#ifdef DEBUG
+    printf("warning[write_str]: string length exceeded buffer size\n");
+#endif
+    return;
+  }
+  sz = (sz > utf_sz ? utf_sz : sz);
+  for (int i = 0; i < sz; i++) {
+    term->back_buf[index + i].codepoint = codepoints[i];
+    term->back_buf[index + i].fg = term->cursor_color_fg;
+    term->back_buf[index + i].bg = term->cursor_color_bg;
+    term->back_buf[index + i].style_flags = term->cursor_style_flags;
+    term->cursor_col++;
+    if (term->cursor_col == term->num_of_cols) {
+      term->cursor_col = 0;
+      term->cursor_row++;
+    }
+  }
 }
 
 void fill_clr(uint8_t clr, TerminalWindow *term) {
