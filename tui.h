@@ -142,6 +142,7 @@ Rect create_rect(size_t start_row, size_t start_col, size_t end_row,
                  size_t end_col);
 void draw_borders(Rect rect, TerminalWindow *term);
 void draw_rounded_borders(Rect rect, TerminalWindow *term);
+void fill_rect(uint8_t clr, Rect rect, TerminalWindow *term);
 
 typedef struct Image Image;
 
@@ -548,6 +549,15 @@ void draw_rounded_borders(Rect rect, TerminalWindow *term) {
     if (rect.end_row < term->num_of_rows) {
       move_cursor(row, rect.end_col, term);
       write_char(U'│', term);
+    }
+  }
+}
+
+void fill_rect(uint8_t clr, Rect rect, TerminalWindow *term) {
+  for (int i = rect.start_row; i <= rect.end_row; i++) {
+    for (int j = rect.start_col; j <= rect.end_col; j++) {
+      term->back_buf[i * term->num_of_cols + j].codepoint = ' ';
+      term->back_buf[i * term->num_of_cols + j].bg = clr;
     }
   }
 }
