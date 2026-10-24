@@ -66,6 +66,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "stb_image.h"
 #include <math.h>
 
+// utilities
+uint8_t rgb_to_ansi(uint8_t r, uint8_t g, uint8_t b);
+size_t utf8_strlen(const char *s);
+//
+
 typedef struct {
   uint32_t codepoint;
   uint8_t fg;
@@ -874,7 +879,19 @@ Image *apply_lanczos(Image *img, int width, int height) {
 uint8_t rgb_to_ansi(uint8_t r, uint8_t g, uint8_t b) {
   return 16 + 36 * (r * 5) / 255 + 6 * (g * 5) / 255 + (b * 5) / 255;
 }
+size_t utf8_strlen(const char *s) {
+  size_t count = 0;
 
+  for (size_t i = 0; s[i] != '\0'; i++) {
+    unsigned char c = (unsigned char)s[i];
+
+    if ((c & 0xC0) != 0x80) {
+      count++;
+    }
+  }
+
+  return count;
+}
 void draw_image(Image *img, TerminalWindow *term, Rect dst, ImageFilter filter,
                 bool keep_aspect) {
   size_t width = 1 + dst.end_col - dst.start_col,
